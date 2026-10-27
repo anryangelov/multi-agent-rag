@@ -147,6 +147,10 @@ Decided by the developer.
    floor before more is added.
 8. **Constructor injection.** All non-determinism enters as a parameter:
    the models, time (`now`), random seeds. Tests never patch.
+9. **Closed sets of values are `StrEnum`s,** with the behaviour that
+   belongs to them inside the enum (`Classification.allows`,
+   `Domain.prefix`). No `Literal` for domain values: a typo in our own code
+   fails at once without a type checker, and the JSON stays the same.
 
 ---
 

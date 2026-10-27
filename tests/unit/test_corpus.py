@@ -12,10 +12,9 @@ from pathlib import Path
 import pytest
 import yaml
 
+from rag_system.messages import Classification, Domain, Kind
+
 ROOT = Path(__file__).parents[2]
-DOMAINS = {"technical": "TEC", "business": "BUS", "compliance": "CMP"}
-KINDS = {"policy", "standard", "guide", "runbook", "report"}
-CLASSIFICATIONS = {"public", "internal", "confidential"}
 REQUIRED = {
     "id",
     "title",
@@ -52,10 +51,10 @@ def test_documents_per_domain():
 def test_front_matter_is_complete_and_valid(doc_id):
     meta, _, path = DOCS[doc_id]
     assert REQUIRED <= meta.keys()
-    assert meta["kind"] in KINDS
-    assert meta["classification"] in CLASSIFICATIONS
+    assert meta["kind"] in set(Kind)
+    assert meta["classification"] in set(Classification)
     assert meta["status"] in {"current", "superseded"}
-    assert doc_id.startswith(DOMAINS[meta["domain"]] + "-")
+    assert doc_id.startswith(Domain(meta["domain"]).prefix + "-")
     assert path.parent.name == meta["domain"]
     assert path.name.startswith(doc_id + "-")
 
@@ -115,12 +114,11 @@ def test_eval_question_expects_existing_documents_of_its_domains(question):
     assert set(expected) <= DOCS.keys()
     domains = {DOCS[doc_id][0]["domain"] for doc_id in expected}
     assert domains == set(question["expected_domains"])
-    assert question.get("clearance", "internal") in CLASSIFICATIONS
+    assert question.get("clearance", "internal") in set(Classification)
 
 
 @pytest.mark.parametrize("question", QUESTIONS, ids=lambda q: q["id"])
 def test_eval_question_clearance_allows_its_expected_documents(question):
-    order = ["public", "internal", "confidential"]
-    clearance = order.index(question.get("clearance", "internal"))
+    clearance = Classification(question.get("clearance", "internal"))
     for doc_id in question["expected_documents"]:
-        assert order.index(DOCS[doc_id][0]["classification"]) <= clearance
+        assert clearance.allows(Classification(DOCS[doc_id][0]["classification"]))
