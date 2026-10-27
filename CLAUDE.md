@@ -134,8 +134,10 @@ Decided by the developer.
    `tests/evals/`, `docs/decisions.md`. Learning, monitoring and knowledge
    updates get their own modules when they appear; `utils.py` holds only
    truly generic helpers.
-6. **The notebook runs with no key and no `.env`.** The offline mode is the
-   default path, not a fallback.
+6. **The notebook runs with no key and no `.env`.** The design targets the
+   model mode; the offline mode is a deterministic stand-in for tests and
+   key-less runs (templated answers) and says so. The committed notebook
+   carries the outputs of a real model run.
 7. **Floors, top-down.** Each file answers one question. `orchestrator.py`
    is START HERE ("what happens when a question arrives?"); one floor down
    `query_classifier.py` and `domain_agents.py`; below them

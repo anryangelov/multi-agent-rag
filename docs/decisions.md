@@ -214,3 +214,234 @@ puts them.
 - A `src/` or per-component layout: the brief would have to be mapped onto
   new paths.
 - Only the given files: `utils.py` would collect everything else.
+
+## Agents and retrieval
+
+### The role of the offline mode
+
+**Decision.** The design targets the model mode. The offline mode is a
+deterministic stand-in for the tests and for runs without a key: answers
+are composed by template, every agent receives the whole question, and
+conflicts are found with a simple heuristic. The notebook says so, and it
+is committed with the outputs of a real model run, which GitHub shows
+without running anything.
+
+**Why.** Treating both modes as equals had started to shape the design
+around what works without a model.
+
+**Rejected.**
+- A key required for the notebook: a reviewer without one runs nothing.
+- Both modes as equals: keeps limiting the design.
+
+### Orchestration is plain Python
+
+**Decision.** The orchestrator is async Python with numbered steps: the
+classifier plans, the chosen domain agents answer in parallel
+(`asyncio.gather`), conflicts are found and resolved, synthesis writes
+the answer. PydanticAI is used only where a model is called. Models
+understand text (routing, answers, finding conflicting claims, synthesis);
+code coordinates and picks conflict winners by explicit rules.
+
+**Why.** The route is a model's decision (the classifier), while its
+execution stays readable and is tested offline. The orchestrator meets the
+brief's definition: it "coordinates multiple agents and synthesizes their
+responses". This is the routing and parallelization pattern described in
+Anthropic's ["Building effective agents"](https://www.anthropic.com/research/building-effective-agents).
+
+**Rejected.**
+- An LLM orchestrator that calls the domain agents as tools: the route
+  differs from run to run, cannot be shown honestly offline, and makes the
+  classifier the brief asks for redundant.
+- LangGraph, LangChain or LlamaIndex: the route would live in framework
+  configuration, plus a heavy dependency.
+
+### Floors, top-down
+
+**Decision.** Each file answers one question. `orchestrator.py` is the
+start; `query_classifier.py` and `domain_agents.py` are one floor down;
+`vector_store.py` is below them. Each floor calls only the floor below.
+Each module opens with an ASCII map that matches the numbered steps of its
+entry function. A module over about 400 lines or a function over about 50
+is split.
+
+**Why.** A reader opens one file, sees the map and knows where to go next.
+
+**Rejected.**
+- Layers by technical type (`models/`, `services/`): one flow spread over
+  many folders.
+- No maps or limits: files grow until nobody reads them top-down.
+
+### Non-determinism enters through the constructor
+
+**Decision.** Models, the clock and random seeds are constructor
+parameters with defaults (`time.perf_counter`, `random.Random(42)`).
+Tests pass their own and never patch.
+
+**Why.** Tests, evals and the learning demo give the same numbers on every
+run.
+
+**Rejected.**
+- Calling `time` and `random` directly and patching in tests: the tests
+  depend on module internals.
+- A global seed: results depend on the order of the tests.
+
+### Chunking
+
+**Decision.** Documents are cut at `##` sections, with the document title
+in front of each chunk. A section over about 250 words, or a document with
+no headings, is cut at paragraph boundaries into pieces of about 150
+words.
+
+**Why.** Sections are natural boundaries and give precise citations. The
+fallback keeps long unstructured text usable: for the two long documents,
+section-only chunking sends about 2,700 words to the model per question
+and cites the whole document; the fallback sends about 750.
+
+**Measured.** Fixed 120-word windows found the fewest documents (13 of 23
+with the embedding model). Whole documents looked best only because a
+random top 5 of 8 documents in one domain already finds the right one 62%
+of the time. One paragraph of overlap made results worse. With the
+fallback, the cause of the incident in TEC-9 sits in a paragraph that
+shares no words with the question; the embedding search missed it, and
+hybrid search (below) finds it.
+
+**Rejected.**
+- Section-only: does not scale to long or unstructured documents.
+- Fixed windows: cut sections and tables in half.
+- Larger pieces of about 400 words: tuned to one question.
+
+### Choosing domains without a model
+
+**Decision.** Offline, the classifier searches the whole corpus and picks
+every domain that holds at least one of the 8 nearest chunks. With a
+model, the classifier returns a plan as structured output.
+
+**Why.** A missed domain is a missing part of the answer; an extra domain
+costs one agent that answers "nothing relevant". On the 12 eval questions
+this method finds all 18 expected domains, with 6 extra ones.
+
+**Rejected.**
+- Similarity to a one-sentence description of each domain: found 12 of 18
+  and missed the compliance part of all three test scenarios.
+- Keywords from document titles: found 10 of 18.
+- Always all three domains: classifies nothing.
+
+### Decomposition without a model
+
+**Decision.** Offline, every chosen agent receives the whole question; the
+plan still holds one sub-query per domain. With a model, the classifier
+rewrites one sub-query per domain.
+
+**Why.** Cutting the question at "and" or "while" lost context and found
+fewer documents (19 of 25 against 21): the compliance half of the first
+test question lost the word "microservice".
+
+**Rejected.**
+- The rule-based split: worse, and shaped to the wording of the three test
+  questions.
+- A "<domain> rules:" prefix: one document of difference, which is noise.
+
+### Agents talk only to the orchestrator
+
+**Decision.** The orchestrator sends context down (the question, the
+agent's sub-query and the caller's clearance) and each agent returns a
+partial result up. Agents run in parallel and never talk to each other.
+
+**Why.** It is the orchestrator-worker pattern used in production
+systems; [Anthropic's research system](https://www.anthropic.com/engineering/multi-agent-research-system)
+notes that its subagents do not coordinate with each other. One model call per agent, easy to test and to
+monitor.
+
+**Rejected.**
+- A shared blackboard with a second round: twice the model calls and
+  slower, with no honest offline version.
+- A second round only for conflicts: decided before the conflict rules.
+
+### The messages
+
+**Decision.** `messages.py` defines the plan (one sub-query per domain),
+the task an agent receives (question, sub-query, clearance) and the
+partial result it returns: a status (`answered`, `nothing_relevant`,
+`failed`), a list of claims and a confidence. A claim is one statement
+with its citations; a citation carries the document id, title, section,
+version, effective date and kind.
+
+**Why.** Every statement knows its source, conflicts are found claim
+against claim with the document kind that the rules need, and the status
+covers an extra domain and a failed agent.
+
+**Rejected.**
+- Free text with citations for the whole answer: no way to tell which
+  sentence comes from which document.
+- Agents that return only chunks: they would stop being RAG agents.
+
+### Hybrid search
+
+**Decision.** Each agent searches its domain with embeddings and BM25 and
+merges the two rankings with reciprocal rank fusion.
+
+**Why.** Per domain on the 12 eval questions (25 expected documents):
+
+| k | Embeddings | BM25 | Hybrid |
+|---|---|---|---|
+| 3 | 18 | 20 | 20 |
+| 5 | 21 | 22 | 22 |
+| 8 | 23 | 23 | 24 |
+
+Hybrid is best or equal at every k and finds the TEC-9 cause paragraph.
+
+**Rejected.**
+- Embeddings only: weakest at every k.
+- BM25 only: no vector store, which the brief asks for.
+
+### Dynamic retrieval
+
+**Decision.** Each agent keeps chunks in hybrid order while their
+embedding similarity to the question is at least 0.4, never fewer than 3
+or more than 10. The parameters are set per domain; they are equal for
+now.
+
+**Why.** On the full offline pipeline it finds 24 of 25 documents with
+about 1,080 words to the model, the same as a fixed k of 8 with about
+1,370 words. The number of chunks follows the question: from 3 to 10.
+
+**Rejected.**
+- k by the number of domains in the plan: 22 of 25, no gain.
+- A fixed k: more text, and not dynamic.
+
+**Note.** The 0.4 threshold was chosen on the same 12 questions; the full
+gold set checks it. No measurement shows a reason for different values per
+domain.
+
+### "Nothing relevant"
+
+**Decision.** Offline, an agent answers `nothing_relevant` when even its
+best chunk is below 0.4; with a model, the model may also decide so.
+
+**Why.** It is the same bar as dynamic retrieval. On the 12 questions it
+stops 2 of the 6 extra domains and drops no needed one; the lowest needed
+domain scores 0.44.
+
+**Rejected.**
+- A threshold of 0.51: stops 4 extra domains but cuts 5 needed ones,
+  including compliance for the second test scenario.
+- No threshold offline: the status would never appear without a key.
+
+### Synthesis and citations
+
+**Decision.** The synthesis receives the agents' claims and writes one
+answer that cites document ids in brackets, such as `[TEC-3]`. Code checks
+that every cited id belongs to the claims it received, and asks the model
+again if not. Code builds the "Sources" list (title, version, date,
+section) from the claims' citations.
+
+**Why.** No answer can cite a document the system did not retrieve. This
+is the portable form of prompt-based citation; a provider's built-in
+citations ([Anthropic's Citations API](https://platform.claude.com/docs/en/build-with-claude/citations))
+cannot be combined with structured output and would tie the system to one provider, while production runs on
+Azure OpenAI.
+
+**Rejected.**
+- Temporary numbers for each claim: an extra layer with no gain for the
+  reader.
+- Free text without a check: an invented citation would pass unnoticed.
