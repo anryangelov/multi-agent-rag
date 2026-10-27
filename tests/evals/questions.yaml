@@ -1,0 +1,76 @@
+# Gold set for the offline evals.
+#
+# Each question lists the domains the classifier should pick and the
+# documents retrieval should return. For a conflict question both sides are
+# expected: the system has to find both before it can decide between them.
+# `clearance` is the access level of the person asking (default: internal).
+#
+# Questions 1-10 drive the embedding spike; the full set grows from them.
+# Expected answer facts and conflict winners are added later.
+
+- id: Q01
+  purpose: test scenario 1 from the assignment
+  question: >-
+    What's the process for deploying a new microservice and what compliance
+    checks are needed?
+  expected_domains: [technical, compliance]
+  expected_documents: [TEC-1, TEC-3, CMP-4]
+
+- id: Q02
+  purpose: test scenario 2 from the assignment
+  question: >-
+    How do I troubleshoot API performance issues while following our
+    security policies?
+  expected_domains: [technical, compliance]
+  expected_documents: [TEC-4, TEC-6, CMP-5]
+
+- id: Q03
+  purpose: test scenario 3 from the assignment
+  question: >-
+    What business approvals are required for implementing a new data
+    processing workflow?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-2, CMP-1, CMP-2, CMP-6]
+
+- id: Q04
+  purpose: conflict 1 (versions), paraphrased
+  question: Is one sign-off enough to ship a change to production?
+  expected_domains: [technical]
+  expected_documents: [TEC-3, TEC-2]
+
+- id: Q05
+  purpose: conflict 2 (versions), paraphrased
+  question: Who must agree before we automate a process that touches customer data?
+  expected_domains: [business]
+  expected_documents: [BUS-2, BUS-1]
+
+- id: Q06
+  purpose: conflict 3 (authority, across domains), paraphrased
+  question: How long can we keep the troubleshooting logs of an API?
+  expected_domains: [technical, compliance]
+  expected_documents: [CMP-3, TEC-4]
+
+- id: Q07
+  purpose: conflict 4 (authority), literal
+  question: Can an experimental connector run in production?
+  expected_domains: [business]
+  expected_documents: [BUS-3, BUS-4]
+
+- id: Q08
+  purpose: conflict 5 (authority, across domains), paraphrased
+  question: Can my team reuse a connector that another department built?
+  expected_domains: [technical, business]
+  expected_documents: [BUS-3, TEC-5]
+
+- id: Q09
+  purpose: the two confidential documents, asked with confidential clearance
+  question: Why was the complaint summarisation workflow paused?
+  clearance: confidential
+  expected_domains: [business, compliance]
+  expected_documents: [CMP-8, BUS-8]
+
+- id: Q10
+  purpose: paraphrase only, no keyword from the document title
+  question: What should I do if the platform goes down in the middle of the night?
+  expected_domains: [technical]
+  expected_documents: [TEC-7]
