@@ -14,8 +14,8 @@ one-week technical assignment, not a product: simple, boring and visible
 wins.
 
 **The developer owns the design and makes every design decision; you (the
-agent) implement them.** Decisions live in this file and in `docs/adr/`,
-not in your head.
+agent) implement them.** Decisions live in this file and in
+`docs/decisions.md`, not in your head.
 
 ---
 
@@ -62,9 +62,9 @@ on Azure OpenAI, everything else on-premise.
 - **Design decisions are the developer's.** Before any first-time
   decision, anything that becomes a pattern, the corpus design or any
   deviation from this file, stop and bring it to the developer. Record the
-  developer's decision as an ADR in `docs/adr/NNNN-short-title.md`
-  (context, decision, rejected options, consequences) and add standing
-  rules to this file.
+  developer's decision as a short entry in `docs/decisions.md` (the
+  decision, why, the rejected options with one reason each) and add
+  standing rules to this file.
 - Without asking, apply an established pattern, do mechanical work and fix
   unambiguous test failures.
 - Never commit before the developer has seen the diff and approved it.
@@ -87,15 +87,15 @@ README, docs, the systems design and comments are read by reviewers.
 - The README has a section **"Assumptions and questions I would ask the
   business"**: what was unclear, what was assumed, which alternative was
   considered.
-- `CLAUDE.md` and `docs/adr/` are committed: they show how the work with an
-  AI coding agent was organised (decisions by the developer, recorded and
-  tested). The README says so in one sentence.
+- `CLAUDE.md` and `docs/decisions.md` are committed: they show how the
+  work with an AI coding agent was organised (decisions by the developer,
+  recorded and tested). The README says so in one sentence.
 
 ---
 
 ## [DECIDED] Architecture
 
-Decided by the developer. Each point gets a short ADR in `docs/adr/`.
+Decided by the developer.
 
 1. **PydanticAI only at the LLM boundary; orchestration is plain Python.**
    The orchestrator calls the classifier, then the domain agents (in
@@ -131,9 +131,9 @@ Decided by the developer. Each point gets a short ADR in `docs/adr/`.
    `rag_system/messages.py` (the agent communication protocol: Pydantic
    models such as `SubQuery`, `AgentAnswer`, `Citation`),
    `rag_system/config.py`, `data/` (the corpus), `tests/unit/`,
-   `tests/evals/`, `docs/adr/`. Learning, monitoring and knowledge updates
-   get their own modules when they appear; `utils.py` holds only truly
-   generic helpers.
+   `tests/evals/`, `docs/decisions.md`. Learning, monitoring and knowledge
+   updates get their own modules when they appear; `utils.py` holds only
+   truly generic helpers.
 6. **The notebook runs with no key and no `.env`.** The offline mode is the
    default path, not a fallback.
 7. **Floors, top-down.** Each file answers one question. `orchestrator.py`
