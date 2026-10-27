@@ -43,9 +43,9 @@ DOCS = _load()
 QUESTIONS = yaml.safe_load((ROOT / "tests/evals/questions.yaml").read_text())
 
 
-def test_eight_documents_per_domain():
+def test_documents_per_domain():
     counts = Counter(meta["domain"] for meta, _, _ in DOCS.values())
-    assert counts == {"technical": 8, "business": 8, "compliance": 8}
+    assert counts == {"technical": 9, "business": 9, "compliance": 8}
 
 
 @pytest.mark.parametrize("doc_id", sorted(DOCS))
@@ -61,9 +61,21 @@ def test_front_matter_is_complete_and_valid(doc_id):
 
 
 @pytest.mark.parametrize("doc_id", sorted(DOCS))
-def test_length_is_300_to_600_words(doc_id):
+def test_length_depends_on_structure(doc_id):
+    """Structured documents are short; unstructured ones are long on purpose."""
     _, body, _ = DOCS[doc_id]
-    assert 300 <= len(body.split()) <= 600
+    words = len(body.split())
+    if re.search(r"(?m)^## ", body):
+        assert 300 <= words <= 600
+    else:
+        assert 1000 <= words <= 2000
+
+
+def test_exactly_two_unstructured_documents():
+    unstructured = {
+        i for i, (_, body, _) in DOCS.items() if not re.search(r"(?m)^## ", body)
+    }
+    assert unstructured == {"BUS-9", "TEC-9"}
 
 
 @pytest.mark.parametrize("doc_id", sorted(DOCS))

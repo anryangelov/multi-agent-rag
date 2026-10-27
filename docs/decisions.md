@@ -40,13 +40,17 @@ needs 3.12.
 
 ### The corpus
 
-**Decision.** 24 Markdown documents, 8 per domain, 300 to 600 words each,
-in `data/<domain>/`. Every document is the expected answer of at least one
-eval question.
+**Decision.** 26 Markdown documents in `data/<domain>/`: 24 structured
+ones (8 per domain, 300 to 600 words, with `##` sections) and 2 long
+unstructured ones without headings (BUS-9, meeting minutes, and TEC-9, an
+incident review, about 1,200 to 1,300 words each). Every document is the
+expected answer of at least one eval question.
 
 **Why.** With about 150 chunks, random top-5 retrieval would find the right
 document for only about 20% of questions, so retrieval quality can be
-measured. 12 documents would give about 37%.
+measured. 12 documents would give about 37%. The two unstructured
+documents stand for the long, unstructured text that much of a bank's
+knowledge lives in, and that knowledge updates can bring in at any time.
 
 **Rejected.**
 - 12 documents: too easy to tell retrieval methods apart.

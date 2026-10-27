@@ -5,7 +5,7 @@
 # expected: the system has to find both before it can decide between them.
 # `clearance` is the access level of the person asking (default: internal).
 #
-# Questions 1-10 drive the embedding spike; the full set grows from them.
+# Questions 1-12 drive the spikes; the full set grows from them.
 # Expected answer facts and conflict winners are added later.
 
 - id: Q01
@@ -74,3 +74,15 @@
   question: What should I do if the platform goes down in the middle of the night?
   expected_domains: [technical]
   expected_documents: [TEC-7]
+
+- id: Q11
+  purpose: a fact buried in a long unstructured document (meeting minutes)
+  question: Did the board agree to pay for a second robot for sanctions screening?
+  expected_domains: [business]
+  expected_documents: [BUS-9]
+
+- id: Q12
+  purpose: a fact buried in a long unstructured document (incident review)
+  question: Why did sanctions alert screening fall hours behind at the end of August?
+  expected_domains: [technical]
+  expected_documents: [TEC-9]
