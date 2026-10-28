@@ -21,7 +21,7 @@ writes one claim per chunk by template.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai import Agent, ModelRetry, RunContext, ToolOutput
 from pydantic_ai.models import Model
 
 from rag_system.ingestion import Chunk
@@ -80,10 +80,11 @@ class DraftAnswer(BaseModel):
 
 # The model boundary, shared by the three domain agents: each run gets its
 # model from the DomainAgent, and its deps are the kept chunks by id, the
-# only chunks the model may cite.
+# only chunks the model may cite. The model returns its claims by calling
+# an output tool named "claims".
 claims_writer = Agent(
     deps_type=dict[str, Chunk],
-    output_type=DraftAnswer,
+    output_type=ToolOutput(DraftAnswer, name="claims"),
     instructions=INSTRUCTIONS,
 )
 

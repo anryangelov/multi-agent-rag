@@ -7,8 +7,8 @@ a real model would see: the prompt our code wrote and the output asked for.
 
     component --> agent.run(prompt)
               --> offline model
-                    1. which output is asked for? (the name of its schema,
-                       e.g. Plan; "text" when free text is asked for)
+                    1. which output is asked for? (the name of its output
+                       tool, e.g. "plan"; "text" when free text is asked for)
                     2. the template for that output fills it from the prompt
               <-- the output, in the shape a real model returns it
 
@@ -26,6 +26,8 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from rag_system.messages import Domain
+
 
 class OfflineModelError(RuntimeError):
     """The offline model was asked for an output it has no template for."""
@@ -35,8 +37,14 @@ def offline_model() -> FunctionModel:
     return FunctionModel(_answer, model_name="offline")
 
 
-# How domain_agents writes a chunk into its prompt.
-_CHUNK = re.compile(r'<chunk id="(?P<id>[^"]+)">\n(?P<text>.*?)\n</chunk>', re.DOTALL)
+# How domain_agents and query_classifier write a chunk into their prompts;
+# the classifier also writes the chunk's domain.
+_CHUNK = re.compile(
+    r'<chunk id="(?P<id>[^"]+)"(?: domain="(?P<domain>[^"]+)")?>\n'
+    r"(?P<text>.*?)\n</chunk>",
+    re.DOTALL,
+)
+_QUESTION = re.compile(r"^Question: (?P<question>.*)$", re.MULTILINE)
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "1. " at the start of a list item is not the end of a sentence.
 _LIST_NUMBER = re.compile(r"^\d+\.\s+")
@@ -49,11 +57,25 @@ def _answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     prompt = _last_prompt(messages)
     # 2. The template for that output.
     match asked:
-        case "DraftAnswer":
+        case "plan":
+            output = {"sub_queries": _plan_from_chunks(prompt)}
+        case "claims":
             output = {"claims": _claims_from_chunks(prompt)}
         case _:
             raise OfflineModelError(f"the offline model has no template for {asked}")
     return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
+
+
+def _plan_from_chunks(prompt: str) -> list[dict]:
+    """Every domain of the chunks, in the order technical, business,
+    compliance; each one gets the whole question."""
+    question = _QUESTION.search(prompt)["question"]
+    found = {match["domain"] for match in _CHUNK.finditer(prompt)}
+    sub_queries = []
+    for domain in Domain:
+        if domain in found:
+            sub_queries.append({"domain": domain, "text": question})
+    return sub_queries
 
 
 def _claims_from_chunks(prompt: str) -> list[dict]:
@@ -91,6 +113,7 @@ def _last_prompt(messages: list[ModelMessage]) -> str:
 
 
 def _asked_output(info: AgentInfo) -> str:
+    """The name each component gives its output, e.g. ToolOutput(Plan, name="plan")."""
     if info.output_tools:
-        return info.output_tools[0].parameters_json_schema["title"]
+        return info.output_tools[0].name
     return "text"

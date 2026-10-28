@@ -6,14 +6,17 @@ Input: the chunks made by ingestion.chunk_document.
         each chunk's text --> embedder --> a vector of numbers (length 1)
         each chunk's text --> its words --> BM25 word statistics
 
-    search(query, domain, clearance, limit, include_superseded=False)
-        1. candidates: the chunks of `domain` that `clearance` may read,
-           without superseded versions unless asked for
+    search(query, domain, clearance, limit, include_superseded=False,
+           ranking=Ranking.HYBRID)
+        1. candidates: the chunks of `domain` (every domain if None) that
+           `clearance` may read, without superseded versions unless asked for
         2. two rankings of the candidates:
              by meaning: cosine similarity of the query vector and each
                          chunk vector
              by words:   BM25 score of the query's words in each chunk
         3. reciprocal rank fusion (RRF) merges the two rankings
+           (with ranking=Ranking.EMBEDDING: the ranking by meaning alone;
+           the classifier uses it, the domain agents use hybrid)
         4. the `limit` best candidates, each with its cosine similarity
                                                         --> [Hit, Hit, ...]
 
@@ -29,6 +32,7 @@ class with the same three members.
 """
 
 import re
+from enum import StrEnum
 from typing import Protocol
 
 import numpy as np
@@ -45,6 +49,13 @@ from rag_system.messages import Clearance, Domain
 # the method (Cormack, Clarke and Buettcher, 2009); it keeps the first few
 # ranks from dominating.
 RRF_K = 60
+
+
+class Ranking(StrEnum):
+    """How search orders the candidates."""
+
+    HYBRID = "hybrid"  # meaning and words, merged with RRF
+    EMBEDDING = "embedding"  # meaning only: cosine similarity
 
 
 class Embedder(Protocol):
@@ -79,11 +90,14 @@ class VectorStore(Protocol):
     def search(
         self,
         query: str,
-        domain: Domain,
+        domain: Domain | None,
         clearance: Clearance,
         limit: int,
         include_superseded: bool = False,
-    ) -> list[Hit]: ...
+        ranking: Ranking = Ranking.HYBRID,
+    ) -> list[Hit]:
+        """`domain=None` searches every domain (the classifier does this)."""
+        ...
 
 
 class InMemoryVectorStore:
@@ -115,10 +129,11 @@ class InMemoryVectorStore:
     def search(
         self,
         query: str,
-        domain: Domain,
+        domain: Domain | None,
         clearance: Clearance,
         limit: int,
         include_superseded: bool = False,
+        ranking: Ranking = Ranking.HYBRID,
     ) -> list[Hit]:
         # 1. The candidates: chunks of the domain that the caller may read.
         candidates = self._readable_candidates(domain, clearance, include_superseded)
@@ -131,11 +146,14 @@ class InMemoryVectorStore:
         word_scores = self._bm25.get_scores(_words(query))
         rank_by_words = _rank(candidates, word_scores)
 
-        # 3. Merge the two rankings.
-        fused_score = _fuse_rankings(candidates, rank_by_meaning, rank_by_words)
+        # 3. Merge the two rankings, or keep the one by meaning.
+        if ranking is Ranking.HYBRID:
+            score = _fuse_rankings(candidates, rank_by_meaning, rank_by_words)
+        else:
+            score = {index: float(similarity[index]) for index in candidates}
 
         # 4. The best `limit` candidates, with their cosine similarity.
-        best_first = sorted(candidates, key=fused_score.get, reverse=True)
+        best_first = sorted(candidates, key=score.get, reverse=True)
         hits = []
         for index in best_first[:limit]:
             hits.append(
@@ -144,12 +162,12 @@ class InMemoryVectorStore:
         return hits
 
     def _readable_candidates(
-        self, domain: Domain, clearance: Clearance, include_superseded: bool
+        self, domain: Domain | None, clearance: Clearance, include_superseded: bool
     ) -> list[int]:
-        """Positions of the chunks of `domain` that `clearance` may read."""
+        """Positions of the chunks of `domain` (or all) that `clearance` may read."""
         candidates = []
         for index, chunk in enumerate(self._chunks):
-            in_domain = chunk.document.domain is domain
+            in_domain = domain is None or chunk.document.domain is domain
             allowed = clearance.allows(chunk.document.classification)
             in_force = chunk.document.status is DocumentStatus.CURRENT
             if in_domain and allowed and (in_force or include_superseded):

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from openai import AzureOpenAI
 from pydantic import BaseModel, ValidationError
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ToolOutput
 
 from rag_system.config import (
     AzureEmbedder,
@@ -148,7 +148,9 @@ async def test_the_offline_model_refuses_a_request_it_has_no_template_for():
     class Weather(BaseModel):
         forecast: str
 
-    agent = Agent(build_llm(settings_from()), output_type=Weather)
+    agent = Agent(
+        build_llm(settings_from()), output_type=ToolOutput(Weather, name="weather")
+    )
 
-    with pytest.raises(OfflineModelError, match="Weather"):
+    with pytest.raises(OfflineModelError, match="weather"):
         await agent.run("Will it rain tomorrow?")

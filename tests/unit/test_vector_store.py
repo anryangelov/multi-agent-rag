@@ -4,7 +4,7 @@ from datetime import date
 
 from rag_system.ingestion import Chunk, Document
 from rag_system.messages import Classification, Domain, Kind
-from rag_system.vector_store import InMemoryVectorStore
+from rag_system.vector_store import InMemoryVectorStore, Ranking
 from tests.fakes import BlindEmbedder, WordHashEmbedder
 
 
@@ -137,3 +137,43 @@ def test_a_superseded_version_is_not_searched_unless_asked_for():
 
     assert {h.chunk.document.id for h in today} == {"TEC-3"}
     assert {h.chunk.document.id for h in history} == {"TEC-2", "TEC-3"}
+
+
+def test_search_with_no_domain_searches_every_domain_the_caller_may_read():
+    s = store(
+        chunk("TEC-1", "release approvals need two approvers"),
+        chunk("BUS-1", "release approvals by the department head", Domain.BUSINESS),
+        chunk(
+            "CMP-8",
+            "release approvals were skipped in the incident",
+            Domain.COMPLIANCE,
+            Classification.CONFIDENTIAL,
+        ),
+    )
+
+    hits = s.search(
+        "release approvals", domain=None, clearance=Classification.INTERNAL, limit=5
+    )
+
+    assert {h.chunk.document.id for h in hits} == {"TEC-1", "BUS-1"}
+
+
+def test_ranking_by_meaning_orders_hits_from_most_to_least_similar():
+    s = store(
+        chunk("TEC-1", "release approvals need two approvers"),
+        chunk("TEC-2", "release release release windows"),
+        chunk("TEC-3", "approvers sign the release request"),
+        chunk("TEC-4", "two approvers for every production release"),
+    )
+
+    hits = s.search(
+        "how many approvers does a release need",
+        Domain.TECHNICAL,
+        Classification.INTERNAL,
+        limit=4,
+        ranking=Ranking.EMBEDDING,
+    )
+
+    similarities = [h.similarity for h in hits]
+    assert similarities == sorted(similarities, reverse=True)
+    assert len(hits) == 4

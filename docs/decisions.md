@@ -502,10 +502,18 @@ without a model; its validators are attached with decorators; the
 component passes its injected model, the deps and the timeout at every
 run (`agent.run(prompt, model=..., deps=..., timeout=...)`).
 
+Every output gets a name (`ToolOutput(Plan, name="plan")`), and the offline
+`FunctionModel` picks its template by that name. The tests block requests
+to real models (`ALLOW_MODEL_REQUESTS = False`).
+
 **Why.** It is how the PydanticAI documentation shows agents ("instantiate
 one agent and use it globally", the model "can also be specified when
 running the agent"), so a reviewer who knows the library reads it at once.
-The run's own timeout replaces a hand-made one.
+The run's own timeout replaces a hand-made one. The output name is what
+the real model sees as the tool to call; without it the offline model had
+to rely on the class name pydantic writes into the JSON schema. The testing
+guide recommends blocking real requests "to block any requests from being
+made to non-test models accidentally".
 
 **Rejected.**
 - An `Agent` built inside every component with its validator attached by
@@ -521,3 +529,19 @@ Q04, the technical agent). An eval test checks the values in the example.
 **Why.** A reader follows real data through the steps instead of
 imagining it. The test keeps the comments true; the first example already
 found a bug in the offline template ("1." taken as a sentence).
+
+### The classifier ranks by meaning only
+
+**Decision.** The classifier's search over the whole corpus orders chunks
+by embedding similarity only; the domain agents keep hybrid search. The
+store's `search` takes the ranking as a parameter (hybrid by default).
+
+**Why.** The rule for choosing domains was measured with this ranking. On
+the 14 eval questions it finds all 20 expected domains with 8 extra ones;
+hybrid ranking finds the same 20 with 14 extra, and 10 of those extra
+agents answer, which adds noise to the answer and, with a model, costs one
+model call each.
+
+**Rejected.**
+- Hybrid ranking for the classifier too: one search method, but 6 more
+  extra agents on 14 questions.
