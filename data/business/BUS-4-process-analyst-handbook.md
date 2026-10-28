@@ -57,3 +57,6 @@ request; the approvals are described in the New Process Approval Policy.
    needed a manual correction.
 2. Compare the real volume and time saved with the business case after
    three months.
+3. If a new version of the workflow misbehaves, do not switch back to the
+   previous version on your own: a rollback needs the approval of your
+   team lead first.

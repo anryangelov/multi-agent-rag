@@ -5,7 +5,7 @@
                    --> the domains of the plan
                    --> compared with expected_domains
 
-Measured on 2026-10-28: all 20 expected domains found, 8 extra, 8 of 14
+Measured on 2026-10-28: all 23 expected domains found, 10 extra, 8 of 16
 plans exact. A change that finds fewer or adds more fails here.
 """
 
@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[2]
 QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 
 
-async def test_the_classifier_finds_every_expected_domain_with_at_most_8_extra(
+async def test_the_classifier_finds_every_expected_domain_with_at_most_10_extra(
     corpus_store,
 ):
     classifier = QueryClassifier(corpus_store, offline_model())
@@ -37,8 +37,8 @@ async def test_the_classifier_finds_every_expected_domain_with_at_most_8_extra(
         extra += len(asked - expected)
         missed += [f"{question['id']}: {domain}" for domain in expected - asked]
 
-    assert found == 20, f"missed {missed}"
-    assert extra <= 8
+    assert found == 23, f"missed {missed}"
+    assert extra <= 10
 
 
 async def test_the_worked_example_in_the_classifier_is_still_true(corpus_store):

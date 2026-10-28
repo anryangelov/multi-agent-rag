@@ -65,6 +65,9 @@ Every release must be reversible within 15 minutes. If a database migration
 cannot be reversed, the release request must say so and describe the
 recovery steps.
 
+A workflow is rolled back by switching to its previous version in the
+platform console, as described in Changing a Running Automation (BUS-7).
+
 ## Records
 
 The release request, both approvals and the result are recorded in the

@@ -9,8 +9,8 @@ The last test runs the domain agents themselves (dynamic retrieval).
                    --> the documents of the hits
                    --> compared with expected_documents and forbidden_documents
 
-The floors are the numbers measured on 2026-10-28 (store 22 of 25 expected
-documents, agents 23 of 25). A change that lowers them fails here.
+The floors are the numbers measured on 2026-10-28 (store 26 of 29 expected
+documents, agents 27 of 29). A change that lowers them fails here.
 """
 
 from pathlib import Path
@@ -42,7 +42,7 @@ def found_documents(store: InMemoryVectorStore, question: dict) -> set[str]:
     return found
 
 
-def test_retrieval_finds_at_least_22_of_the_25_expected_documents(corpus_store):
+def test_retrieval_finds_at_least_26_of_the_29_expected_documents(corpus_store):
     found, expected, missed = 0, 0, []
     for question in QUESTIONS:
         documents = found_documents(corpus_store, question)
@@ -53,8 +53,8 @@ def test_retrieval_finds_at_least_22_of_the_25_expected_documents(corpus_store):
             else:
                 missed.append(f"{question['id']}: {doc_id}")
 
-    assert expected == 25
-    assert found >= 22, f"found {found} of {expected}; missed {missed}"
+    assert expected == 29
+    assert found >= 26, f"found {found} of {expected}; missed {missed}"
 
 
 def test_a_superseded_version_is_never_retrieved_unless_history_is_asked(corpus_store):
@@ -75,12 +75,12 @@ def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(corpus_sto
     assert any("alert reference" in hit.chunk.text for hit in hits)
 
 
-async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(
+async def test_the_domain_agents_cite_at_least_27_of_the_29_expected_documents(
     corpus_store,
 ):
     """Dynamic retrieval end to end: each expected domain's agent, offline model.
 
-    Measured 2026-10-28: 23 of 25. Missed: CMP-1 for Q03, and TEC-2 for Q13,
+    Measured 2026-10-28: 27 of 29. Missed: CMP-1 for Q03, and TEC-2 for Q13,
     because nothing in the pipeline asks for superseded versions yet.
     """
     agents = {
@@ -104,7 +104,7 @@ async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(
             else:
                 missed.append(f"{question['id']}: {doc_id}")
 
-    assert found >= 23, f"found {found} of 25; missed {missed}"
+    assert found >= 27, f"found {found} of 29; missed {missed}"
 
 
 async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store):

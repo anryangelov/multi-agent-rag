@@ -105,3 +105,22 @@
   expected_domains: [business]
   expected_documents: [BUS-2]
   forbidden_documents: [BUS-1]
+
+- id: Q15
+  purpose: >-
+    conflict 6 (same kind, two guides), paraphrased; decided by evidence:
+    TEC-3 refers the rollback of a workflow to BUS-7, so BUS-7 wins although
+    BUS-4 is newer
+  question: >-
+    If a new version of our automation misbehaves, can the process owner
+    switch back to the old one without asking anyone?
+  expected_domains: [business]
+  expected_documents: [BUS-4, BUS-7]
+
+- id: Q16
+  purpose: >-
+    conflict 7 (same kind, two standards, across domains), paraphrased; no
+    other document supports either side, so there is no winner
+  question: Can the analyst who built a workflow look at its audit records?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-6, CMP-7]

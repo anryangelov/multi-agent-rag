@@ -33,6 +33,8 @@ department.
 - Maps the process end to end and checks whether it should be automated.
 - Assembles the workflow from certified templates and blocks.
 - Writes the assessment that goes to the approvers (BUS-2).
+- Reads the audit records of the workflows they assembled, to check the
+  first runs after go-live.
 - Works on the canvas and the wizard; does not need to write code.
 
 ## Developer
