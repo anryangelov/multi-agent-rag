@@ -15,12 +15,9 @@ documents, agents 23 of 25). A change that lowers them fails here.
 
 from pathlib import Path
 
-import pytest
 import yaml
 
-from rag_system.config import Settings, build_embedder
 from rag_system.domain_agents import DomainAgent
-from rag_system.ingestion import chunk_document, load_documents
 from rag_system.messages import AgentTask, Classification, Domain, SubQuery
 from rag_system.offline_model import offline_model
 from rag_system.vector_store import InMemoryVectorStore
@@ -28,14 +25,6 @@ from rag_system.vector_store import InMemoryVectorStore
 ROOT = Path(__file__).parents[2]
 QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 LIMIT = 5
-
-
-@pytest.fixture(scope="module")
-def store() -> InMemoryVectorStore:
-    vector_store = InMemoryVectorStore(build_embedder(Settings(_env_file=None)))
-    for document in load_documents(ROOT / "data"):
-        vector_store.add(chunk_document(document))
-    return vector_store
 
 
 def found_documents(store: InMemoryVectorStore, question: dict) -> set[str]:
@@ -53,10 +42,10 @@ def found_documents(store: InMemoryVectorStore, question: dict) -> set[str]:
     return found
 
 
-def test_retrieval_finds_at_least_22_of_the_25_expected_documents(store):
+def test_retrieval_finds_at_least_22_of_the_25_expected_documents(corpus_store):
     found, expected, missed = 0, 0, []
     for question in QUESTIONS:
-        documents = found_documents(store, question)
+        documents = found_documents(corpus_store, question)
         for doc_id in question["expected_documents"]:
             expected += 1
             if doc_id in documents:
@@ -68,17 +57,17 @@ def test_retrieval_finds_at_least_22_of_the_25_expected_documents(store):
     assert found >= 22, f"found {found} of {expected}; missed {missed}"
 
 
-def test_a_superseded_version_is_never_retrieved_unless_history_is_asked(store):
+def test_a_superseded_version_is_never_retrieved_unless_history_is_asked(corpus_store):
     for question in QUESTIONS:
         forbidden = set(question.get("forbidden_documents", []))
-        assert not forbidden & found_documents(store, question), question["id"]
+        assert not forbidden & found_documents(corpus_store, question), question["id"]
 
 
-def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(store):
+def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(corpus_store):
     """Q12: the cause is a moved screen field, told in the middle of TEC-9."""
     question = next(q for q in QUESTIONS if q["id"] == "Q12")
 
-    hits = store.search(
+    hits = corpus_store.search(
         question["question"], Domain.TECHNICAL, Classification.INTERNAL, limit=LIMIT
     )
 
@@ -86,13 +75,17 @@ def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(store):
     assert any("alert reference" in hit.chunk.text for hit in hits)
 
 
-async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(store):
+async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(
+    corpus_store,
+):
     """Dynamic retrieval end to end: each expected domain's agent, offline model.
 
     Measured 2026-10-28: 23 of 25. Missed: CMP-1 for Q03, and TEC-2 for Q13,
     because nothing in the pipeline asks for superseded versions yet.
     """
-    agents = {domain: DomainAgent(domain, store, offline_model()) for domain in Domain}
+    agents = {
+        domain: DomainAgent(domain, corpus_store, offline_model()) for domain in Domain
+    }
     found, missed = 0, []
     for question in QUESTIONS:
         cited = set()
@@ -114,17 +107,21 @@ async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(s
     assert found >= 23, f"found {found} of 25; missed {missed}"
 
 
-async def test_the_worked_example_in_the_domain_agent_is_still_true(store):
+async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store):
     """The "Example" comments in DomainAgent._steps follow Q04; keep them true."""
     question = next(q for q in QUESTIONS if q["id"] == "Q04")["question"]
 
-    hits = store.search(question, Domain.TECHNICAL, Classification.INTERNAL, limit=10)
+    hits = corpus_store.search(
+        question, Domain.TECHNICAL, Classification.INTERNAL, limit=10
+    )
     task = AgentTask(
         question=question,
         sub_query=SubQuery(domain=Domain.TECHNICAL, text=question),
         clearance=Classification.INTERNAL,
     )
-    answer = await DomainAgent(Domain.TECHNICAL, store, offline_model()).answer(task)
+    answer = await DomainAgent(Domain.TECHNICAL, corpus_store, offline_model()).answer(
+        task
+    )
 
     # Step 1: the hits in hybrid order, with their similarity.
     first_seven = [(hit.chunk.id, round(hit.similarity, 2)) for hit in hits[:7]]

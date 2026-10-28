@@ -21,6 +21,7 @@ import re
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
+    TextPart,
     ToolCallPart,
     UserPromptPart,
 )
@@ -45,6 +46,15 @@ _CHUNK = re.compile(
     re.DOTALL,
 )
 _QUESTION = re.compile(r"^Question: (?P<question>.*)$", re.MULTILINE)
+# How the orchestrator writes a claim into the synthesis prompt.
+_CLAIM = re.compile(
+    r'<claim domain="(?P<domain>[^"]+)" sources="(?P<sources>[^"]+)">'
+    r"(?P<text>.*?)</claim>"
+)
+OFFLINE_NOTE = (
+    "Offline answer: composed by template from the agents' claims; "
+    "no language model was used."
+)
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "1. " at the start of a list item is not the end of a sentence.
 _LIST_NUMBER = re.compile(r"^\d+\.\s+")
@@ -61,9 +71,24 @@ def _answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             output = {"sub_queries": _plan_from_chunks(prompt)}
         case "claims":
             output = {"claims": _claims_from_chunks(prompt)}
+        case "text":
+            return ModelResponse(parts=[TextPart(_answer_from_claims(prompt))])
         case _:
             raise OfflineModelError(f"the offline model has no template for {asked}")
     return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, output)])
+
+
+def _answer_from_claims(prompt: str) -> str:
+    """One paragraph per domain: its claims, each followed by its sources."""
+    paragraphs = {}
+    for match in _CLAIM.finditer(prompt):
+        cited = " ".join(f"[{doc_id}]" for doc_id in match["sources"].split())
+        sentence = f"{match['text']} {cited}"
+        paragraphs.setdefault(match["domain"], []).append(sentence)
+    lines = [OFFLINE_NOTE]
+    for domain, sentences in paragraphs.items():
+        lines.append(f"{domain.capitalize()}: " + " ".join(sentences))
+    return "\n\n".join(lines)
 
 
 def _plan_from_chunks(prompt: str) -> list[dict]:
@@ -82,21 +107,54 @@ def _claims_from_chunks(prompt: str) -> list[dict]:
     """One claim per chunk: the first sentence of its text, citing the chunk."""
     claims = []
     for match in _CHUNK.finditer(prompt):
-        claims.append(
-            {"text": _first_sentence(match["text"]), "chunk_ids": [match["id"]]}
-        )
+        sentence = _first_sentence(match["text"])
+        if sentence:
+            claims.append({"text": sentence, "chunk_ids": [match["id"]]})
     return claims
 
 
 def _first_sentence(chunk_text: str) -> str:
-    """Skip the document title and the headings, then take one sentence."""
-    paragraphs = chunk_text.split("\n\n")[1:]  # the first one is the title
-    body = " ".join(p for p in paragraphs if not p.startswith("#")).strip()
+    """The first sentence of the first paragraph of prose.
+
+    Skips the document title (the first paragraph) and headings, and drops
+    markdown bold. A chunk with only a table gives the table's rows.
+    """
+    body = ""
+    table = ""
+    for paragraph in chunk_text.split("\n\n")[1:]:
+        paragraph = paragraph.strip()
+        if paragraph.startswith("|") and not table:
+            table = paragraph
+        elif paragraph and not paragraph.startswith("#"):
+            body = " ".join(paragraph.replace("**", "").split())
+            break
+    if not body and table:
+        return _table_as_sentence(table)
     number = _LIST_NUMBER.match(body)
     list_number = number.group() if number else ""
     rest = body[len(list_number) :]
     sentence = list_number + _SENTENCE_END.split(rest, maxsplit=1)[0]
     words = sentence.split()
+    if len(words) > CLAIM_WORDS:
+        return " ".join(words[:CLAIM_WORDS]) + " ..."
+    return " ".join(words)
+
+
+def _table_as_sentence(table: str) -> str:
+    """'| A | B |' rows as 'A: a1, B: b1; A: a2, B: b2.', cut like a claim.
+
+    The first line holds the column names, the second the |---| line.
+    """
+    lines = [line.strip().strip("|") for line in table.splitlines()]
+    header = [cell.strip() for cell in lines[0].split("|")]
+    rows = []
+    for line in lines[2:]:
+        cells = [cell.strip().replace("**", "") for cell in line.split("|")]
+        pairs = []
+        for name, cell in zip(header, cells, strict=False):
+            pairs.append(f"{name}: {cell}")
+        rows.append(", ".join(pairs))
+    words = ("; ".join(rows) + ".").split()
     if len(words) > CLAIM_WORDS:
         return " ".join(words[:CLAIM_WORDS]) + " ..."
     return " ".join(words)

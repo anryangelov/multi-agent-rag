@@ -243,3 +243,39 @@ async def test_an_offline_claim_from_a_numbered_list_keeps_the_first_item_whole(
     assert answer.claims[0].text == (
         "1. Complete the compliance checklist before the release."
     )
+
+
+async def test_an_offline_claim_skips_tables_and_markdown_and_keeps_one_paragraph():
+    store = store_with(
+        document(
+            "TEC-1",
+            "## Timeline\n\n"
+            "| Step | Days |\n|---|---|\n| Approvals | 2 |\n\n"
+            "Every release needs **two approvers**:\n\n"
+            "1. The team lead.\n2. Someone from another team.",
+        )
+    )
+    agent = DomainAgent(Domain.TECHNICAL, store, offline_model())
+
+    answer = await agent.answer(
+        task("Every release needs two approvers: which team lead?")
+    )
+
+    assert answer.claims[0].text == "Every release needs two approvers:"
+
+
+async def test_offline_a_chunk_with_only_a_table_gives_its_rows_as_a_claim():
+    store = store_with(
+        document(
+            "TEC-8",
+            "## Components\n\n| Component | Release approvers |\n|---|---|\n"
+            "| Workflow engine | two |",
+        )
+    )
+    agent = DomainAgent(Domain.TECHNICAL, store, offline_model())
+
+    answer = await agent.answer(task("Which component release approvers?"))
+
+    assert (
+        answer.claims[0].text == "Component: Workflow engine, Release approvers: two."
+    )

@@ -12,6 +12,10 @@ The orchestrator is the hub; agents never talk to each other.
                     status, claims, confidence
                     each Claim cites one or more Citations
 
+    orchestrator -- FinalAnswer -------------------> caller
+                    the answer text citing [TEC-3], its sources, and the
+                    plan and partial results it was made from
+
 Every message is frozen: whoever receives it cannot change it.
 """
 
@@ -132,3 +136,13 @@ class AgentAnswer(_Message):
         if (self.status is Status.FAILED) != (self.error is not None):
             raise ValueError("a failed result, and only a failed one, has an error")
         return self
+
+
+class FinalAnswer(_Message):
+    """What the orchestrator returns: one answer, its sources, how it was made."""
+
+    question: str
+    plan: Plan
+    agent_answers: list[AgentAnswer]
+    text: str  # cites document ids in brackets, e.g. [TEC-3]
+    sources: list[Citation]  # each cited document and section, once

@@ -11,30 +11,21 @@ plans exact. A change that finds fewer or adds more fails here.
 
 from pathlib import Path
 
-import pytest
 import yaml
 
-from rag_system.config import Settings, build_embedder
-from rag_system.ingestion import chunk_document, load_documents
 from rag_system.messages import Classification, Domain
 from rag_system.offline_model import offline_model
 from rag_system.query_classifier import QueryClassifier
-from rag_system.vector_store import InMemoryVectorStore, Ranking
+from rag_system.vector_store import Ranking
 
 ROOT = Path(__file__).parents[2]
 QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 
 
-@pytest.fixture(scope="module")
-def store() -> InMemoryVectorStore:
-    vector_store = InMemoryVectorStore(build_embedder(Settings(_env_file=None)))
-    for document in load_documents(ROOT / "data"):
-        vector_store.add(chunk_document(document))
-    return vector_store
-
-
-async def test_the_classifier_finds_every_expected_domain_with_at_most_8_extra(store):
-    classifier = QueryClassifier(store, offline_model())
+async def test_the_classifier_finds_every_expected_domain_with_at_most_8_extra(
+    corpus_store,
+):
+    classifier = QueryClassifier(corpus_store, offline_model())
     found, extra, missed = 0, 0, []
     for question in QUESTIONS:
         plan = await classifier.classify(
@@ -50,18 +41,18 @@ async def test_the_classifier_finds_every_expected_domain_with_at_most_8_extra(s
     assert extra <= 8
 
 
-async def test_the_worked_example_in_the_classifier_is_still_true(store):
+async def test_the_worked_example_in_the_classifier_is_still_true(corpus_store):
     """The "Example" comments in QueryClassifier.classify follow Q01."""
     question = next(q for q in QUESTIONS if q["id"] == "Q01")["question"]
 
-    hits = store.search(
+    hits = corpus_store.search(
         question,
         domain=None,
         clearance=Classification.INTERNAL,
         limit=8,
         ranking=Ranking.EMBEDDING,
     )
-    plan = await QueryClassifier(store, offline_model()).classify(
+    plan = await QueryClassifier(corpus_store, offline_model()).classify(
         question, Classification.INTERNAL
     )
 

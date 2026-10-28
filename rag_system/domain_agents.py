@@ -59,8 +59,10 @@ class RetrievalParams(BaseModel):
     min_similarity: float = 0.4
 
 
-# The values decided in dynamic retrieval; equal for every domain for now.
+# The values decided in dynamic retrieval. They are set per domain and are
+# equal for now: no measurement shows a reason for different values.
 DEFAULT_RETRIEVAL = RetrievalParams()
+RETRIEVAL_BY_DOMAIN = {domain: DEFAULT_RETRIEVAL for domain in Domain}
 
 
 class DraftClaim(BaseModel):

@@ -156,8 +156,9 @@ Decided by the developer.
     `Agent` per model role (no model on it), validators attached with
     `@agent.output_validator` next to their function, and the injected
     model passed at every run: `agent.run(prompt, model=..., deps=...,
-    timeout=...)`. Every output is named (`ToolOutput(Plan, name="plan")`);
-    the offline model picks its template by that name. Tests set
+    timeout=...)`. Every structured output is named
+    (`ToolOutput(Plan, name="plan")`); the offline model picks its template
+    by that name, or "text" for a free-text answer (the synthesis). Tests set
     `models.ALLOW_MODEL_REQUESTS = False` (`tests/conftest.py`).
 11. **Worked examples in the entry methods.** The method that runs a
     module's numbered steps carries, under each step, an "Example" comment
