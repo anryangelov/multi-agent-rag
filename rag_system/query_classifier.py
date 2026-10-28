@@ -38,10 +38,17 @@ planner = Agent(output_type=ToolOutput(Plan, name="plan"), instructions=INSTRUCT
 
 
 class QueryClassifier:
-    def __init__(self, store: VectorStore, model: Model, chunks_to_read: int = 8):
+    def __init__(
+        self,
+        store: VectorStore,
+        model: Model,
+        chunks_to_read: int = 8,
+        timeout_seconds: float = 30.0,
+    ):
         self._store = store
         self._model = model
         self._chunks_to_read = chunks_to_read
+        self._timeout_seconds = timeout_seconds
 
     async def classify(self, question: str, clearance: Clearance) -> Plan:
         """Steps 1-2 of the map.
@@ -75,7 +82,11 @@ class QueryClassifier:
 
         # 2. The model returns the plan.
         chunks = [hit.chunk for hit in hits]
-        result = await planner.run(_prompt(question, chunks), model=self._model)
+        result = await planner.run(
+            _prompt(question, chunks),
+            model=self._model,
+            timeout=self._timeout_seconds,
+        )
         #    Example: the prompt is
         #      Question: What's the process for deploying a new microservice
         #                and what compliance checks are needed?

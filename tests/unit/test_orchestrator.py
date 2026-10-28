@@ -1,5 +1,6 @@
 """The orchestrator turns a question into one answer with checked citations."""
 
+import asyncio
 import re
 from datetime import date
 
@@ -377,26 +378,28 @@ def detector_pairing_bus(messages, info):
     )
 
 
+ROLLBACK_GUIDES = [
+    document(
+        "BUS-4",
+        "## Rollback\n\nA rollback of a workflow needs an approval.",
+        Domain.BUSINESS,
+    ).model_copy(update={"kind": Kind.GUIDE}),
+    document(
+        "BUS-7",
+        "## Rollback\n\nA rollback of a workflow needs no approval.",
+        Domain.BUSINESS,
+    ).model_copy(update={"kind": Kind.GUIDE}),
+    document(
+        "TEC-3",
+        "## Rollback\n\nA rollback of a workflow follows BUS-7.",
+        Domain.TECHNICAL,
+    ),
+]
+
+
 async def test_when_the_judge_fails_the_conflict_has_no_winner_and_says_why():
-    guides = [
-        document(
-            "BUS-4",
-            "## Rollback\n\nA rollback of a workflow needs an approval.",
-            Domain.BUSINESS,
-        ).model_copy(update={"kind": Kind.GUIDE}),
-        document(
-            "BUS-7",
-            "## Rollback\n\nA rollback of a workflow needs no approval.",
-            Domain.BUSINESS,
-        ).model_copy(update={"kind": Kind.GUIDE}),
-        document(
-            "TEC-3",
-            "## Rollback\n\nA rollback of a workflow follows BUS-7.",
-            Domain.TECHNICAL,
-        ),
-    ]
     orchestrator = Orchestrator(
-        store_with(*guides),
+        store_with(*ROLLBACK_GUIDES),
         offline_except(conflicts=detector_pairing_bus, evidence=failing("judge")),
     )
 
@@ -427,3 +430,55 @@ async def test_when_the_synthesis_fails_the_claims_are_listed_with_their_sources
     assert "[TEC-3]" in answer.text
     assert "[CMP-4]" in answer.text
     assert [source.doc_id for source in answer.sources] == ["TEC-3", "CMP-4"]
+
+
+# The fast roles (the offline model) must finish inside the timeout even on
+# a loaded machine, so the timeout is 0.2 s, not a few milliseconds.
+async def slow(messages, info):
+    """A model role that never answers in time."""
+    await asyncio.sleep(2)
+
+
+@pytest.mark.parametrize(
+    ("role", "warning"),
+    [
+        ("plan", "classifier failed (timed out after 0.2 s); every domain was asked"),
+        ("conflicts", "conflicts not checked (timed out after 0.2 s)"),
+        (
+            "text",
+            "synthesis failed (timed out after 0.2 s); "
+            "the claims are listed as the agents wrote them",
+        ),
+    ],
+)
+async def test_a_model_role_slower_than_the_timeout_is_skipped_with_a_warning(
+    role, warning
+):
+    orchestrator = Orchestrator(
+        store_with(*RETENTION_CORPUS),
+        offline_except(**{role: slow}),
+        timeout_seconds=0.2,
+    )
+
+    answer = await orchestrator.answer(
+        "How long are debug logs kept?", Classification.INTERNAL
+    )
+
+    assert answer.warnings == [warning]
+    assert answer.sources
+
+
+async def test_a_judge_slower_than_the_timeout_leaves_the_conflict_open():
+    orchestrator = Orchestrator(
+        store_with(*ROLLBACK_GUIDES),
+        offline_except(conflicts=detector_pairing_bus, evidence=slow),
+        timeout_seconds=0.2,
+    )
+
+    answer = await orchestrator.answer(
+        "Does a rollback of a workflow need an approval?", Classification.INTERNAL
+    )
+
+    [conflict] = answer.conflicts
+    assert conflict.winner is None
+    assert conflict.error == "timed out after 0.2 s"

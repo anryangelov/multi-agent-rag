@@ -4,6 +4,7 @@ They replace the embedding model or the language model, not our code: the
 vector store and the agents under test are real.
 """
 
+import inspect
 import re
 import zlib
 
@@ -41,10 +42,13 @@ def offline_except(**scripts) -> FunctionModel:
     given here (by output name), which run the given function instead."""
     offline = offline_model().function
 
-    def model(messages, info):
+    async def model(messages, info):
         name = info.output_tools[0].name if info.output_tools else "text"
-        if name in scripts:
-            return scripts[name](messages, info)
-        return offline(messages, info)
+        if name not in scripts:
+            return offline(messages, info)
+        response = scripts[name](messages, info)
+        if inspect.isawaitable(response):  # a role that takes time
+            response = await response
+        return response
 
     return FunctionModel(model)

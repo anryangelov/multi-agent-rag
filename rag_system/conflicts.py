@@ -121,14 +121,22 @@ def labels_of_given_passages(
 
 
 class ConflictChecker:
-    def __init__(self, store: VectorStore, model: Model) -> None:
+    def __init__(
+        self, store: VectorStore, model: Model, timeout_seconds: float = 30.0
+    ) -> None:
         self._store = store
         self._model = model
+        self._timeout_seconds = timeout_seconds
 
     async def check(self, claims: list[Claim], clearance: Clearance) -> list[Conflict]:
         """Steps 1-3 of the map."""
         # 1. The detector returns the pairs that contradict.
-        result = await detector.run(_numbered(claims), model=self._model, deps=claims)
+        result = await detector.run(
+            _numbered(claims),
+            model=self._model,
+            deps=claims,
+            timeout=self._timeout_seconds,
+        )
 
         # 2-3. Score each pair; the higher score wins.
         conflicts = []
@@ -158,8 +166,14 @@ class ConflictChecker:
         if passages:
             try:
                 result = await judge.run(
-                    _judge_prompt(a, b, passages), model=self._model, deps=passages
+                    _judge_prompt(a, b, passages),
+                    model=self._model,
+                    deps=passages,
+                    timeout=self._timeout_seconds,
                 )
+            except TimeoutError:  # RunTimedOut is a TimeoutError
+                reason = f"timed out after {self._timeout_seconds} s"
+                return _unchecked(topic, a, b, reason)
             except Exception as error:
                 return _unchecked(topic, a, b, f"{type(error).__name__}: {error}")
             labels = result.output.labels

@@ -22,8 +22,9 @@ given (monitoring.py).
 Other endings:
     a question without a word  --> ValueError, before any search
     a plan with no domain      --> "nothing answers", no agent is asked
-    a step fails after the question is accepted: the answer keeps what the
-    agents found and says what was skipped, in `warnings`
+    a step fails or runs past `timeout_seconds` (every model run has one)
+    after the question is accepted: the answer keeps what the agents found
+    and says what was skipped, in `warnings`
         classifier fails  --> every domain is asked the whole question
         detector fails    --> no conflict check
         judge fails       --> that conflict has no winner (conflicts.py)
@@ -102,20 +103,26 @@ class Orchestrator:
         weights: ChunkWeights | None = None,
         monitor: Monitor | None = None,
         clock: Callable[[], float] = time.perf_counter,
+        timeout_seconds: float = 30.0,
     ) -> None:
         """`weights`: what feedback has taught (learning.py), shared by all
         agents; without it every chunk weighs 1.0. `monitor` records every
-        answer; `clock` measures its durations, in seconds."""
+        answer; `clock` measures its durations, in seconds.
+        `timeout_seconds` bounds every model run: classifier, agents,
+        detector, judge and synthesis."""
         self._store = store
         self._model = model
         self._monitor = monitor
         self._clock = clock
-        self._classifier = QueryClassifier(store, model)
-        self._conflicts = ConflictChecker(store, model)
+        self._timeout_seconds = timeout_seconds
+        self._classifier = QueryClassifier(
+            store, model, timeout_seconds=timeout_seconds
+        )
+        self._conflicts = ConflictChecker(store, model, timeout_seconds)
         self._agents = {}
         for domain, params in RETRIEVAL_BY_DOMAIN.items():
             self._agents[domain] = DomainAgent(
-                domain, store, model, params, weights=weights
+                domain, store, model, params, timeout_seconds, weights=weights
             )
 
     async def answer(self, question: str, clearance: Clearance) -> FinalAnswer:
@@ -199,7 +206,7 @@ class Orchestrator:
             return await self._classifier.classify(question, clearance)
         except Exception as error:
             warnings.append(
-                f"classifier failed ({_failure(error)}); every domain was asked"
+                f"classifier failed ({self._failure(error)}); every domain was asked"
             )
             return Plan(sub_queries=[SubQuery(domain=d, text=question) for d in Domain])
 
@@ -209,7 +216,7 @@ class Orchestrator:
         try:
             conflicts = await self._conflicts.check(claims, clearance)
         except Exception as error:
-            warnings.append(f"conflicts not checked ({_failure(error)})")
+            warnings.append(f"conflicts not checked ({self._failure(error)})")
             return []
         for conflict in conflicts:
             if conflict.error:
@@ -218,6 +225,11 @@ class Orchestrator:
                     f"({conflict.error})"
                 )
         return conflicts
+
+    def _failure(self, error: Exception) -> str:
+        if isinstance(error, TimeoutError):  # RunTimedOut is a TimeoutError
+            return f"timed out after {self._timeout_seconds} s"
+        return f"{type(error).__name__}: {error}"
 
     async def _timed(
         self, agent: DomainAgent, task: AgentTask
@@ -241,18 +253,15 @@ class Orchestrator:
                 _prompt(question, agent_answers, conflicts),
                 model=self._model,
                 deps=given,
+                timeout=self._timeout_seconds,
             )
         except Exception as error:
             warnings.append(
-                f"synthesis failed ({_failure(error)}); "
+                f"synthesis failed ({self._failure(error)}); "
                 "the claims are listed as the agents wrote them"
             )
             return _listed(agent_answers, conflicts)
         return result.output
-
-
-def _failure(error: Exception) -> str:
-    return f"{type(error).__name__}: {error}"
 
 
 def _listed(agent_answers: list[AgentAnswer], conflicts: list[Conflict]) -> str:

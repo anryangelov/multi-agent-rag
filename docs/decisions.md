@@ -754,11 +754,15 @@ which PydanticAI already uses for model calls.
    winner; the synthesis fails, so code lists the claims with their
    citations.
 4. Monitoring counts such a question as partial.
+5. Every model run (classifier, agents, detector, judge, synthesis) has a
+   timeout, 30 s by default, set once on the orchestrator; a run past it
+   is a failure of that step, handled as above.
 
 **Why.** Today an empty question crashes (`Plan` needs a domain), and any
 model failure outside the agents escapes `answer()`. The agents' claims
 are valid even when a later step fails, so the user should get them.
-Network errors and rate limits are already retried by the provider SDKs.
+Network errors and rate limits are already retried by the provider SDKs;
+a model that hangs without an error would otherwise hold the answer.
 
 **Rejected.**
 - One error naming the failed step: the user loses valid claims when only
