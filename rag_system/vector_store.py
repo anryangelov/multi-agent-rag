@@ -10,6 +10,8 @@ Input: the chunks made by ingestion.chunk_document.
            ranking=Ranking.HYBRID)
         1. candidates: the chunks of `domain` (every domain if None) that
            `clearance` may read, without superseded versions unless asked for
+           (a document is superseded when another one names it in
+           `supersedes`)
         2. two rankings of the candidates:
              by meaning: cosine similarity of the query vector and each
                          chunk vector
@@ -24,6 +26,8 @@ The filters run before the ranking, so a chunk the caller may not read
 never reaches an agent or a model, and a rule that no longer applies does
 not take a place in the results. Superseded versions stay in the index for
 questions about history ("how many approvers were needed in 2025?").
+Adding a new version is the whole knowledge update: from that moment the
+old version is history.
 
 `VectorStore` is the interface the agents depend on; `InMemoryVectorStore`
 is the demo's implementation (numpy and BM25 in memory, rebuilt at every
@@ -39,7 +43,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 from rank_bm25 import BM25Okapi
 
-from rag_system.ingestion import Chunk, DocumentStatus
+from rag_system.ingestion import Chunk
 from rag_system.messages import Clearance, Domain
 
 # Reciprocal rank fusion gives each chunk 1 / (RRF_K + rank) from each
@@ -108,6 +112,7 @@ class InMemoryVectorStore:
         self._chunks: list[Chunk] = []
         self._vectors = np.zeros((0, 0))  # one row per chunk
         self._bm25: BM25Okapi | None = None
+        self._superseded: set[str] = set()  # ids named in some `supersedes`
 
     @property
     def model(self) -> str:
@@ -123,6 +128,9 @@ class InMemoryVectorStore:
         else:
             self._vectors = new_vectors
         self._chunks.extend(chunks)
+        for chunk in chunks:
+            if chunk.document.supersedes:
+                self._superseded.add(chunk.document.supersedes)
         # BM25 needs word statistics over all chunks, so it is rebuilt.
         self._bm25 = BM25Okapi([_words(chunk.text) for chunk in self._chunks])
 
@@ -169,7 +177,7 @@ class InMemoryVectorStore:
         for index, chunk in enumerate(self._chunks):
             in_domain = domain is None or chunk.document.domain is domain
             allowed = clearance.allows(chunk.document.classification)
-            in_force = chunk.document.status is DocumentStatus.CURRENT
+            in_force = chunk.document.id not in self._superseded
             if in_domain and allowed and (in_force or include_superseded):
                 candidates.append(index)
         return candidates

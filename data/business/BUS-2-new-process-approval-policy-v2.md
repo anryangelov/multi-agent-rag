@@ -5,7 +5,6 @@ domain: business
 kind: policy
 version: 2
 effective_date: 2026-04-01
-status: current
 supersedes: BUS-1
 classification: internal
 owner: Process Excellence Office

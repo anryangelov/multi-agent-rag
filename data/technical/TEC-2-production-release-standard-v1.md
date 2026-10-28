@@ -5,7 +5,6 @@ domain: technical
 kind: standard
 version: 1
 effective_date: 2025-01-15
-status: superseded
 classification: internal
 owner: Platform Engineering
 ---

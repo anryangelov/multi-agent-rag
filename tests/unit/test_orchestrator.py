@@ -22,7 +22,6 @@ def document(doc_id: str, body: str, domain: Domain) -> Document:
         kind=Kind.STANDARD,
         version=1,
         effective_date=date(2026, 1, 1),
-        status="current",
         classification=Classification.INTERNAL,
         owner="Platform Engineering",
         body=body,

@@ -5,7 +5,6 @@ domain: technical
 kind: report
 version: 1
 effective_date: 2026-09-07
-status: current
 classification: internal
 owner: Platform Engineering
 ---

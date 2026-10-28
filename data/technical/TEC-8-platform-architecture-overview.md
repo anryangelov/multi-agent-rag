@@ -5,7 +5,6 @@ domain: technical
 kind: guide
 version: 1
 effective_date: 2025-09-01
-status: current
 classification: public
 owner: Architecture Office
 ---

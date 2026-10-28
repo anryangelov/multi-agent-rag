@@ -38,7 +38,6 @@ domain: technical
 kind: guide
 version: 1
 effective_date: 2026-01-01
-status: current
 classification: internal
 owner: Platform Engineering
 ---
@@ -55,6 +54,8 @@ owner: Platform Engineering
             VALID.replace("classification: internal", "classification: secret"),
             "classification",
         ),
+        # a retired or misspelt field fails instead of being ignored
+        (VALID.replace("owner:", "status: current\nowner:"), "status"),
     ],
 )
 def test_a_broken_file_fails_with_its_name_and_the_reason(tmp_path, content, reason):
@@ -71,7 +72,6 @@ def document(body: str) -> Document:
         kind=Kind.STANDARD,
         version=2,
         effective_date=date(2026, 2, 1),
-        status="current",
         classification=Classification.INTERNAL,
         owner="Platform Engineering",
         body=body,

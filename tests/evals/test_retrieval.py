@@ -147,4 +147,4 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
         "kind": "standard",
     }
     assert len(answer.claims) == 3
-    assert round(answer.confidence, 2) == 0.42
+    assert round(answer.best_similarity, 2) == 0.42

@@ -151,13 +151,14 @@ class DomainAgent:
             self.domain,
             task.clearance,
             limit=self._params.max_chunks,
+            include_superseded=task.sub_query.include_history,
         )
 
         # 2. Keep the chunks that match the sub-question; if even the best
         #    one is too far from it, this domain has nothing to add.
         best = max((hit.similarity for hit in hits), default=0.0)
         if best < self._params.min_similarity:
-            return self._nothing_relevant()
+            return self._nothing_relevant(best if hits else None)
         kept = self._keep(hits)
         chunks = {hit.chunk.id: hit.chunk for hit in kept}
         #    Example: best is 0.42 (TEC-3#6), not below 0.4, so the agent
@@ -195,23 +196,22 @@ class DomainAgent:
         #      title="Production Release Standard", section="Release windows",
         #      version=2, effective_date=2026-02-01, kind=standard).
         #    Returned: AgentAnswer(domain=technical, status=answered,
-        #      3 claims, confidence=0.42).
+        #      3 claims, best_similarity=0.42).
         if not claims:  # the model found no answer in the chunks
-            return self._nothing_relevant()
+            return self._nothing_relevant(best)
         return AgentAnswer(
             domain=self.domain,
             status=Status.ANSWERED,
             claims=claims,
-            # Placeholder until the confidence rules of phase 3.
-            confidence=best,
+            best_similarity=best,
         )
 
-    def _nothing_relevant(self) -> AgentAnswer:
+    def _nothing_relevant(self, best: float | None) -> AgentAnswer:
         return AgentAnswer(
             domain=self.domain,
             status=Status.NOTHING_RELEVANT,
             claims=[],
-            confidence=0.0,
+            best_similarity=best,
         )
 
     def _failed(self, error: str) -> AgentAnswer:
@@ -219,7 +219,6 @@ class DomainAgent:
             domain=self.domain,
             status=Status.FAILED,
             claims=[],
-            confidence=0.0,
             error=error,
         )
 

@@ -29,7 +29,6 @@ def document(doc_id: str, body: str, domain: Domain = Domain.TECHNICAL) -> Docum
         kind=Kind.STANDARD,
         version=2,
         effective_date=date(2026, 1, 1),
-        status="current",
         classification=Classification.INTERNAL,
         owner="Platform Engineering",
         body=body,
@@ -279,3 +278,27 @@ async def test_offline_a_chunk_with_only_a_table_gives_its_rows_as_a_claim():
     assert (
         answer.claims[0].text == "Component: Workflow engine, Release approvers: two."
     )
+
+
+async def test_a_sub_question_about_history_also_searches_superseded_versions():
+    old = document("TEC-2", "## Approvals\n\nA production release needs one approver.")
+    new = document(
+        "TEC-3", "## Approvals\n\nA production release needs two approvers."
+    ).model_copy(update={"supersedes": "TEC-2"})
+    agent = DomainAgent(Domain.TECHNICAL, store_with(old, new), offline_model())
+    question = "How many approvers did a production release need in 2025?"
+    today = task(question)
+    history = today.model_copy(
+        update={
+            "sub_query": today.sub_query.model_copy(update={"include_history": True})
+        }
+    )
+
+    cited_today = await agent.answer(today)
+    cited_history = await agent.answer(history)
+
+    def documents(answer):
+        return {c.doc_id for claim in answer.claims for c in claim.citations}
+
+    assert documents(cited_today) == {"TEC-3"}
+    assert documents(cited_history) == {"TEC-2", "TEC-3"}

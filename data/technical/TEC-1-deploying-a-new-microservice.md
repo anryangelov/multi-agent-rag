@@ -5,7 +5,6 @@ domain: technical
 kind: guide
 version: 1
 effective_date: 2026-02-15
-status: current
 classification: internal
 owner: Platform Engineering
 ---

@@ -112,7 +112,8 @@ model.
 **Decision.** One Markdown file per document with YAML front matter (a
 metadata block between two `---` lines at the top): `id`, `title`,
 `domain`, `kind`, `version`, `effective_date`, `status`, `supersedes`,
-`classification`, `owner`.
+`classification`, `owner`. (`status` was removed in Phase 3; see "A new
+version takes effect when it is added".)
 
 **Why.** The text and its metadata live in one file and cannot drift
 apart; a wrong date would flip the winner of a conflict.
@@ -378,7 +379,8 @@ monitor.
 **Decision.** `messages.py` defines the plan (one sub-query per domain),
 the task an agent receives (question, sub-query, clearance) and the
 partial result it returns: a status (`answered`, `nothing_relevant`,
-`failed`), a list of claims and a confidence. A claim is one statement
+`failed`), a list of claims and a confidence (renamed `best_similarity` in
+Phase 3; see "No confidence level for the whole answer"). A claim is one statement
 with its citations; a citation carries the document id, title, section,
 version, effective date and kind.
 

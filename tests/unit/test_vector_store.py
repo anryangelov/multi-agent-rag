@@ -13,7 +13,7 @@ def chunk(
     text: str,
     domain: Domain = Domain.TECHNICAL,
     classification: Classification = Classification.INTERNAL,
-    status: str = "current",
+    supersedes: str | None = None,
 ) -> Chunk:
     document = Document(
         id=doc_id,
@@ -22,7 +22,7 @@ def chunk(
         kind=Kind.GUIDE,
         version=1,
         effective_date=date(2026, 1, 1),
-        status=status,
+        supersedes=supersedes,
         classification=classification,
         owner="Platform Engineering",
         body=text,
@@ -122,8 +122,8 @@ def test_an_empty_index_or_an_empty_query_finds_nothing():
 
 def test_a_superseded_version_is_not_searched_unless_asked_for():
     s = store(
-        chunk("TEC-2", "a production release needs one approver", status="superseded"),
-        chunk("TEC-3", "a production release needs two approvers"),
+        chunk("TEC-2", "a production release needs one approver"),
+        chunk("TEC-3", "a production release needs two approvers", supersedes="TEC-2"),
     )
 
     today = s.search("release approver", Domain.TECHNICAL, Classification.INTERNAL, 5)
@@ -137,6 +137,24 @@ def test_a_superseded_version_is_not_searched_unless_asked_for():
 
     assert {h.chunk.document.id for h in today} == {"TEC-3"}
     assert {h.chunk.document.id for h in history} == {"TEC-2", "TEC-3"}
+
+
+def test_a_new_version_added_later_retires_the_old_one():
+    """A knowledge update: the new version names the old one in `supersedes`."""
+    s = store(chunk("TEC-3", "a production release needs two approvers"))
+    s.add(
+        [
+            chunk(
+                "TEC-10",
+                "a production release needs three approvers",
+                supersedes="TEC-3",
+            )
+        ]
+    )
+
+    hits = s.search("release approvers", Domain.TECHNICAL, Classification.INTERNAL, 5)
+
+    assert [h.chunk.document.id for h in hits] == ["TEC-10"]
 
 
 def test_search_with_no_domain_searches_every_domain_the_caller_may_read():

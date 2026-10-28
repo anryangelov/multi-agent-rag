@@ -27,7 +27,9 @@ domain agents can answer: technical, business and compliance. The prompt
 holds the question and the chunks of the documentation nearest to it, each
 with its domain. Return a plan that asks every domain whose documents are
 needed for a full answer. For each domain write the sub-question that
-domain's agent should answer, using the words of the question.
+domain's agent should answer, using the words of the question. Set
+include_history only when the question asks about the past or an old
+version (for example "in 2025" or "before the change").
 """
 
 # The model boundary: each run gets its model from the QueryClassifier.

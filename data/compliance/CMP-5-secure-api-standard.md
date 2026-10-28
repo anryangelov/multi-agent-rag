@@ -5,7 +5,6 @@ domain: compliance
 kind: standard
 version: 1
 effective_date: 2025-08-01
-status: current
 classification: internal
 owner: Information Security
 ---

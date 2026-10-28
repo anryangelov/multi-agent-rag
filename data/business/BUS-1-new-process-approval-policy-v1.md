@@ -5,7 +5,6 @@ domain: business
 kind: policy
 version: 1
 effective_date: 2025-03-01
-status: superseded
 classification: internal
 owner: Process Excellence Office
 ---

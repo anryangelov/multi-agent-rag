@@ -5,7 +5,6 @@ domain: business
 kind: report
 version: 1
 effective_date: 2026-09-16
-status: current
 classification: internal
 owner: Process Board secretary
 ---

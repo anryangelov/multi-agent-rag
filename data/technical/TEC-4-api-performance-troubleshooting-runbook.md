@@ -5,7 +5,6 @@ domain: technical
 kind: runbook
 version: 1
 effective_date: 2026-05-20
-status: current
 classification: internal
 owner: Platform Engineering, API team
 ---

@@ -22,7 +22,6 @@ REQUIRED = {
     "kind",
     "version",
     "effective_date",
-    "status",
     "classification",
     "owner",
 }
@@ -40,6 +39,10 @@ def _load() -> dict[str, tuple[dict, str, Path]]:
 
 DOCS = _load()
 QUESTIONS = yaml.safe_load((ROOT / "tests/evals/questions.yaml").read_text())
+# A document is superseded when a newer one names it in `supersedes`.
+SUPERSEDED = {
+    meta["supersedes"] for meta, _, _ in DOCS.values() if "supersedes" in meta
+}
 
 
 def test_documents_per_domain():
@@ -53,7 +56,6 @@ def test_front_matter_is_complete_and_valid(doc_id):
     assert REQUIRED <= meta.keys()
     assert meta["kind"] in set(Kind)
     assert meta["classification"] in set(Classification)
-    assert meta["status"] in {"current", "superseded"}
     assert doc_id.startswith(Domain(meta["domain"]).prefix + "-")
     assert path.parent.name == meta["domain"]
     assert path.name.startswith(doc_id + "-")
@@ -89,16 +91,9 @@ def test_a_new_version_supersedes_an_older_one_of_the_same_document():
     assert {meta["supersedes"] for meta in newer} == {"TEC-2", "BUS-1"}
     for meta in newer:
         old = DOCS[meta["supersedes"]][0]
-        assert old["status"] == "superseded"
         assert old["title"] == meta["title"]
         assert old["version"] < meta["version"]
         assert old["effective_date"] < meta["effective_date"]
-
-
-def test_superseded_documents_are_superseded_by_something():
-    superseded = {i for i, (m, _, _) in DOCS.items() if m["status"] == "superseded"}
-    replaced = {m["supersedes"] for m, _, _ in DOCS.values() if "supersedes" in m}
-    assert superseded == replaced
 
 
 def test_exactly_two_confidential_documents():
@@ -128,7 +123,7 @@ def test_eval_question_clearance_allows_its_expected_documents(question):
 def test_a_superseded_document_is_expected_only_in_a_question_about_history(question):
     history = question.get("include_superseded", False)
     for doc_id in question["expected_documents"]:
-        if DOCS[doc_id][0]["status"] == "superseded":
+        if doc_id in SUPERSEDED:
             assert history, f"{doc_id} is superseded; mark the question as history"
     for doc_id in question.get("forbidden_documents", []):
         assert doc_id in DOCS

@@ -9,7 +9,7 @@ The orchestrator is the hub; agents never talk to each other.
                     question, sub-query, clearance     (in parallel)
 
     domain agent -- AgentAnswer -------------------> orchestrator
-                    status, claims, confidence
+                    status, claims, best similarity
                     each Claim cites one or more Citations
 
     orchestrator -- FinalAnswer -------------------> caller
@@ -77,6 +77,11 @@ class SubQuery(_Message):
 
     domain: Domain
     text: str
+    include_history: bool = Field(
+        default=False,
+        description="True when the question asks about the past or an old "
+        "version, e.g. 'in 2025'; the search then includes superseded versions.",
+    )
 
 
 class Plan(_Message):
@@ -124,7 +129,10 @@ class AgentAnswer(_Message):
     domain: Domain
     status: Status
     claims: list[Claim]
-    confidence: float = Field(ge=0, le=1)
+    # The cosine similarity of the agent's best chunk to its sub-question:
+    # how close the text came, not how sure the answer is. None when the
+    # agent failed or found no chunk.
+    best_similarity: float | None = Field(default=None, ge=-1, le=1)
     error: str | None = None
 
     @model_validator(mode="after")

@@ -5,7 +5,6 @@ domain: compliance
 kind: policy
 version: 1
 effective_date: 2025-07-01
-status: current
 classification: internal
 owner: Compliance
 ---

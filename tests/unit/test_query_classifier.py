@@ -26,7 +26,6 @@ def document(
         kind=Kind.GUIDE,
         version=1,
         effective_date=date(2026, 1, 1),
-        status="current",
         classification=classification,
         owner="Platform Engineering",
         body=body,

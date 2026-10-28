@@ -5,7 +5,6 @@ domain: business
 kind: report
 version: 1
 effective_date: 2026-07-10
-status: current
 classification: confidential
 owner: Process Excellence Office
 ---

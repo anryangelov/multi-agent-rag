@@ -5,7 +5,6 @@ domain: compliance
 kind: report
 version: 1
 effective_date: 2026-03-27
-status: current
 classification: confidential
 owner: Data Protection Office
 ---

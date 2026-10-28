@@ -68,13 +68,16 @@ def test_a_citation_rejects_ids_that_are_not_corpus_ids(doc_id):
 def test_an_answered_result_has_at_least_one_claim():
     with pytest.raises(ValidationError, match="at least one claim"):
         AgentAnswer(
-            domain=Domain.COMPLIANCE, status=Status.ANSWERED, claims=[], confidence=0.7
+            domain=Domain.COMPLIANCE,
+            status=Status.ANSWERED,
+            claims=[],
+            best_similarity=0.7,
         )
     answer = AgentAnswer(
         domain=Domain.COMPLIANCE,
         status=Status.ANSWERED,
         claims=[claim()],
-        confidence=0.7,
+        best_similarity=0.7,
     )
     assert answer.status is Status.ANSWERED
 
@@ -86,21 +89,17 @@ def test_a_result_without_an_answer_carries_no_claims(status):
             domain=Domain.BUSINESS,
             status=status,
             claims=[claim()],
-            confidence=0.0,
             error="timeout" if status is Status.FAILED else None,
         )
 
 
 def test_a_failed_result_says_why():
     with pytest.raises(ValidationError, match="error"):
-        AgentAnswer(
-            domain=Domain.BUSINESS, status=Status.FAILED, claims=[], confidence=0.0
-        )
+        AgentAnswer(domain=Domain.BUSINESS, status=Status.FAILED, claims=[])
     failed = AgentAnswer(
         domain=Domain.BUSINESS,
         status=Status.FAILED,
         claims=[],
-        confidence=0.0,
         error="the agent timed out after 30 s",
     )
     assert failed.error == "the agent timed out after 30 s"
@@ -112,19 +111,19 @@ def test_only_a_failed_result_has_an_error():
             domain=Domain.BUSINESS,
             status=Status.ANSWERED,
             claims=[claim()],
-            confidence=0.7,
+            best_similarity=0.7,
             error="something",
         )
 
 
-@pytest.mark.parametrize("confidence", [-0.1, 1.2])
-def test_confidence_is_between_zero_and_one(confidence):
+@pytest.mark.parametrize("similarity", [-1.1, 1.2])
+def test_the_best_similarity_is_a_cosine_between_minus_one_and_one(similarity):
     with pytest.raises(ValidationError):
         AgentAnswer(
             domain=Domain.COMPLIANCE,
             status=Status.ANSWERED,
             claims=[claim()],
-            confidence=confidence,
+            best_similarity=similarity,
         )
 
 

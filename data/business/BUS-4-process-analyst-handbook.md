@@ -5,7 +5,6 @@ domain: business
 kind: guide
 version: 1
 effective_date: 2026-01-20
-status: current
 classification: internal
 owner: Process Excellence Office
 ---

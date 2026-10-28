@@ -20,7 +20,6 @@ A broken file raises IngestionError with the file name and the reason.
 
 import re
 from datetime import date
-from enum import StrEnum
 from pathlib import Path
 
 import yaml
@@ -36,23 +35,16 @@ _SECTION_START = re.compile(r"(?m)^(?=## )")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
-class DocumentStatus(StrEnum):
-    """Whether a document is in force.
+class DocumentInfo(BaseModel):
+    """Everything about a document except its text: what a citation needs.
 
-    CURRENT: the document applies today.
-    SUPERSEDED: a newer version replaced it; the newer document names it in
-    `supersedes` (TEC-3 supersedes TEC-2). The old version stays in the
-    corpus so that the system can show what changed.
+    A newer version names the version it replaces in `supersedes` (TEC-3
+    supersedes TEC-2). That link is the only record of it: the store treats
+    a document that another document supersedes as history.
     """
 
-    CURRENT = "current"
-    SUPERSEDED = "superseded"
-
-
-class DocumentInfo(BaseModel):
-    """Everything about a document except its text: what a citation needs."""
-
-    model_config = ConfigDict(frozen=True)
+    # extra="forbid": a misspelt or retired field in a file fails loudly
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
     title: str
@@ -60,7 +52,6 @@ class DocumentInfo(BaseModel):
     kind: Kind
     version: int
     effective_date: date
-    status: DocumentStatus
     supersedes: str | None = None
     classification: Classification
     owner: str

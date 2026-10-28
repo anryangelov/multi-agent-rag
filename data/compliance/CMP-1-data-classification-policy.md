@@ -5,7 +5,6 @@ domain: compliance
 kind: policy
 version: 1
 effective_date: 2025-03-01
-status: current
 classification: public
 owner: Data Protection Office
 ---

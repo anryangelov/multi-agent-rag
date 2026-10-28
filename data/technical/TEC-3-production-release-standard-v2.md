@@ -5,7 +5,6 @@ domain: technical
 kind: standard
 version: 2
 effective_date: 2026-02-01
-status: current
 supersedes: TEC-2
 classification: internal
 owner: Platform Engineering
