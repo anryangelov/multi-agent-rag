@@ -7,6 +7,9 @@
 # `forbidden_documents`) unless the question asks about history
 # (`include_superseded: true`).
 # `clearance` is the access level of the person asking (default: internal).
+# `paraphrase` asks the same thing in other words; the learning eval uses it
+# to check that feedback on a question also helps when it is asked again
+# differently.
 #
 # Questions 1-12 drive the spikes; the full set grows from them.
 # Expected answer facts and conflict winners are added later.
@@ -16,6 +19,9 @@
   question: >-
     What's the process for deploying a new microservice and what compliance
     checks are needed?
+  paraphrase: >-
+    How do we get a new service into production, and which compliance checks
+    must it pass first?
   expected_domains: [technical, compliance]
   expected_documents: [TEC-1, TEC-3, CMP-4]
 
@@ -24,6 +30,9 @@
   question: >-
     How do I troubleshoot API performance issues while following our
     security policies?
+  paraphrase: >-
+    An API is slow: how do I find the cause without breaking the security
+    rules?
   expected_domains: [technical, compliance]
   expected_documents: [TEC-4, TEC-6, CMP-5]
 
@@ -32,12 +41,16 @@
   question: >-
     What business approvals are required for implementing a new data
     processing workflow?
+  paraphrase: >-
+    Which sign-offs does a new workflow that processes data need before it
+    can start?
   expected_domains: [business, compliance]
   expected_documents: [BUS-2, CMP-1, CMP-2, CMP-6]
 
 - id: Q04
   purpose: versions (conflict 1), paraphrased; only the version in force
   question: Is one sign-off enough to ship a change to production?
+  paraphrase: How many approvers does a production release need today?
   expected_domains: [technical]
   expected_documents: [TEC-3]
   forbidden_documents: [TEC-2]
@@ -45,6 +58,8 @@
 - id: Q05
   purpose: versions (conflict 2), paraphrased; only the version in force
   question: Who must agree before we automate a process that touches customer data?
+  paraphrase: >-
+    Which approvals does an automation that handles customer data need?
   expected_domains: [business]
   expected_documents: [BUS-2]
   forbidden_documents: [BUS-1]
@@ -52,18 +67,21 @@
 - id: Q06
   purpose: conflict 3 (authority, across domains), paraphrased
   question: How long can we keep the troubleshooting logs of an API?
+  paraphrase: For how many days are the debug logs of an API retained?
   expected_domains: [technical, compliance]
   expected_documents: [CMP-3, TEC-4]
 
 - id: Q07
   purpose: conflict 4 (authority), literal
   question: Can an experimental connector run in production?
+  paraphrase: May a connector from the experimental tier be used in production?
   expected_domains: [business]
   expected_documents: [BUS-3, BUS-4]
 
 - id: Q08
   purpose: conflict 5 (authority, across domains), paraphrased
   question: Can my team reuse a connector that another department built?
+  paraphrase: Can we use a connector that was built by a different team?
   expected_domains: [technical, business]
   expected_documents: [BUS-3, TEC-5]
 
@@ -71,24 +89,33 @@
   purpose: the two confidential documents, asked with confidential clearance
   question: Why was the complaint summarisation workflow paused?
   clearance: confidential
+  paraphrase: >-
+    What went wrong with the complaint summarisation workflow, and why was
+    it stopped?
   expected_domains: [business, compliance]
   expected_documents: [CMP-8, BUS-8]
 
 - id: Q10
   purpose: paraphrase only, no keyword from the document title
   question: What should I do if the platform goes down in the middle of the night?
+  paraphrase: >-
+    Who do I alert when the automation platform has an outage at night?
   expected_domains: [technical]
   expected_documents: [TEC-7]
 
 - id: Q11
   purpose: a fact buried in a long unstructured document (meeting minutes)
   question: Did the board agree to pay for a second robot for sanctions screening?
+  paraphrase: >-
+    Did the process board approve a second robot for the screening system?
   expected_domains: [business]
   expected_documents: [BUS-9]
 
 - id: Q12
   purpose: a fact buried in a long unstructured document (incident review)
   question: Why did sanctions alert screening fall hours behind at the end of August?
+  paraphrase: >-
+    What caused the backlog in sanctions alert screening in late August?
   expected_domains: [technical]
   expected_documents: [TEC-9]
 
@@ -96,12 +123,14 @@
   purpose: history; the superseded version answers it
   question: How many approvers did a production release need in 2025?
   include_superseded: true
+  paraphrase: In 2025, how many sign-offs did a release to production require?
   expected_domains: [technical]
   expected_documents: [TEC-2]
 
 - id: Q14
   purpose: what changed between versions, answered by the version in force
   question: What changed in the rules for approving a new automated process?
+  paraphrase: How have the approval rules for new automated processes changed?
   expected_domains: [business]
   expected_documents: [BUS-2]
   forbidden_documents: [BUS-1]
@@ -114,6 +143,9 @@
   question: >-
     If a new version of our automation misbehaves, can the process owner
     switch back to the old one without asking anyone?
+  paraphrase: >-
+    Can a process owner revert a workflow to its previous version without
+    approval?
   expected_domains: [business]
   expected_documents: [BUS-4, BUS-7]
 
@@ -122,5 +154,8 @@
     conflict 7 (same kind, two standards, across domains), paraphrased; no
     other document supports either side, so there is no winner
   question: Can the analyst who built a workflow look at its audit records?
+  paraphrase: >-
+    Are process analysts allowed to read the audit records of their
+    workflows?
   expected_domains: [business, compliance]
   expected_documents: [BUS-6, CMP-7]
