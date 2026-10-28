@@ -129,6 +129,7 @@ class Citation(_Message):
     """Where a claim comes from: one document, and the section if it has one."""
 
     doc_id: str = Field(pattern=r"^(TEC|BUS|CMP)-\d+$")
+    chunk_id: str  # the exact piece, e.g. "TEC-3#5": what feedback rates
     title: str
     section: str | None
     version: int

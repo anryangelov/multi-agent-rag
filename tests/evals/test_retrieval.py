@@ -140,6 +140,7 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
     # Step 4: the citation built from the chunk id TEC-3#5.
     assert claim.citations[0].model_dump(mode="json") == {
         "doc_id": "TEC-3",
+        "chunk_id": "TEC-3#5",
         "title": "Production Release Standard",
         "section": "Release windows",
         "version": 2,

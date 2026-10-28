@@ -6,6 +6,7 @@ from datetime import date
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 
 from rag_system.ingestion import Document, chunk_document
+from rag_system.learning import ChunkWeights, Rating
 from rag_system.messages import Classification, Domain, Kind, Status
 from rag_system.offline_model import offline_model
 from rag_system.orchestrator import NOTHING_FOUND, Orchestrator
@@ -236,3 +237,21 @@ async def test_a_document_that_only_gave_evidence_is_cited_and_listed():
     assert conflict.winner.citations[0].doc_id == "BUS-7"
     assert answer.text.endswith("Supported by [TEC-3].")
     assert "TEC-3" in [source.doc_id for source in answer.sources]
+
+
+async def test_feedback_reaches_the_agents_through_the_orchestrator():
+    corpus = [
+        document(f"TEC-{n}", f"Deploy a service, step {n}.", Domain.TECHNICAL)
+        for n in range(1, 5)
+    ]
+    weights = ChunkWeights(WordHashEmbedder())
+    orchestrator = Orchestrator(store_with(*corpus), offline_model(), weights=weights)
+    question = "Deploy a service"
+    before = await orchestrator.answer(question, Classification.INTERNAL)
+
+    for _ in range(3):
+        weights.apply(question, [Rating(chunk_id="TEC-4#1", useful=False)])
+    after = await orchestrator.answer(question, Classification.INTERNAL)
+
+    assert "TEC-4#1" in [source.chunk_id for source in before.sources]
+    assert "TEC-4#1" not in [source.chunk_id for source in after.sources]

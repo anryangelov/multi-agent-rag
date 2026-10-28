@@ -22,6 +22,7 @@ from rag_system.messages import (
 def citation(doc_id: str = "CMP-4") -> Citation:
     return Citation(
         doc_id=doc_id,
+        chunk_id=f"{doc_id}#1",
         title="Pre-Production Compliance Checklist for Services",
         section="The checklist",
         version=1,

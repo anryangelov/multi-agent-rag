@@ -80,6 +80,7 @@ class Chunk(BaseModel):
         """How an answer points back to this chunk: document and section."""
         return Citation(
             doc_id=self.document.id,
+            chunk_id=self.id,
             title=self.document.title,
             section=self.section,
             version=self.document.version,

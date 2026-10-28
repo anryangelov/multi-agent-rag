@@ -29,6 +29,7 @@ from pydantic_ai.models import Model
 
 from rag_system.conflicts import ConflictChecker
 from rag_system.domain_agents import RETRIEVAL_BY_DOMAIN, DomainAgent
+from rag_system.learning import ChunkWeights
 from rag_system.messages import (
     AgentAnswer,
     AgentTask,
@@ -74,13 +75,19 @@ def cites_only_given_documents(ctx: RunContext[set[str]], text: str) -> str:
 
 
 class Orchestrator:
-    def __init__(self, store: VectorStore, model: Model) -> None:
+    def __init__(
+        self, store: VectorStore, model: Model, weights: ChunkWeights | None = None
+    ) -> None:
+        """`weights`: what feedback has taught (learning.py), shared by all
+        agents; without it every chunk weighs 1.0."""
         self._model = model
         self._classifier = QueryClassifier(store, model)
         self._conflicts = ConflictChecker(store, model)
         self._agents = {}
         for domain, params in RETRIEVAL_BY_DOMAIN.items():
-            self._agents[domain] = DomainAgent(domain, store, model, params)
+            self._agents[domain] = DomainAgent(
+                domain, store, model, params, weights=weights
+            )
 
     async def answer(self, question: str, clearance: Clearance) -> FinalAnswer:
         """Steps 1-5 of the map.

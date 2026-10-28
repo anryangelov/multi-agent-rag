@@ -2,7 +2,8 @@
 
     orchestrator -- AgentTask --> DomainAgent.answer(task)
         1. search: the store returns this domain's best chunks that the
-           caller may read, in hybrid order
+           caller may read, in hybrid order; learned weights (learning.py)
+           move rated chunks up or down
         2. keep the chunks that match the question (dynamic retrieval)
         3. the model reads the kept chunks and writes claims, each citing
            the ids of the chunks it comes from
@@ -25,6 +26,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext, ToolOutput
 from pydantic_ai.models import Model
 
 from rag_system.ingestion import Chunk
+from rag_system.learning import ChunkWeights
 from rag_system.messages import (
     AgentAnswer,
     AgentTask,
@@ -62,6 +64,9 @@ class RetrievalParams(BaseModel):
 # The values decided in dynamic retrieval. They are set per domain and are
 # equal for now: no measurement shows a reason for different values.
 DEFAULT_RETRIEVAL = RetrievalParams()
+# Hits read from the store before weights reorder them: a chunk with a high
+# learned weight can come up from below the first max_chunks.
+CANDIDATES = 40
 RETRIEVAL_BY_DOMAIN = {domain: DEFAULT_RETRIEVAL for domain in Domain}
 
 
@@ -112,12 +117,14 @@ class DomainAgent:
         model: Model,
         params: RetrievalParams = DEFAULT_RETRIEVAL,
         timeout_seconds: float = 30.0,
+        weights: ChunkWeights | None = None,
     ) -> None:
         self.domain = domain
         self._store = store
         self._model = model
         self._params = params
         self._timeout_seconds = timeout_seconds
+        self._weights = weights  # None: no feedback, every chunk weighs 1.0
 
     async def answer(self, task: AgentTask) -> AgentAnswer:
         """Answer the task; a failure or a timeout becomes status `failed`.
@@ -142,17 +149,19 @@ class DomainAgent:
         # 1. Search this domain's chunks that the caller may read.
         #    Example: task.sub_query.text is
         #      "Is one sign-off enough to ship a change to production?"
-        #    hits: the 10 best technical chunks in hybrid order, each with its
-        #    embedding similarity to the sub-question:
+        #    hits: the 10 best technical chunks in hybrid order (no feedback
+        #    yet, so every weight is 1.0), each with its embedding
+        #    similarity to the sub-question:
         #      TEC-1#4 0.33, TEC-3#5 0.31, TEC-3#6 0.42, TEC-9#7 0.31,
         #      TEC-9#4 0.25, TEC-3#1 0.34, TEC-3#4 0.31, ... (10 in all)
         hits = self._store.search(
             task.sub_query.text,
             self.domain,
             task.clearance,
-            limit=self._params.max_chunks,
+            limit=CANDIDATES,
             include_superseded=task.sub_query.include_history,
         )
+        hits = self._weighted(task.question, hits)[: self._params.max_chunks]
 
         # 2. Keep the chunks that match the sub-question; if even the best
         #    one is too far from it, this domain has nothing to add.
@@ -193,7 +202,8 @@ class DomainAgent:
             citations = [chunks[chunk_id].citation() for chunk_id in draft.chunk_ids]
             claims.append(Claim(text=draft.text, citations=citations))
         #    Example: "TEC-3#5" becomes Citation(doc_id="TEC-3",
-        #      title="Production Release Standard", section="Release windows",
+        #      chunk_id="TEC-3#5", title="Production Release Standard",
+        #      section="Release windows",
         #      version=2, effective_date=2026-02-01, kind=standard,
         #      owner="Platform Engineering").
         #    Returned: AgentAnswer(domain=technical, status=answered,
@@ -222,6 +232,26 @@ class DomainAgent:
             claims=[],
             error=error,
         )
+
+    def _weighted(self, question: str, hits: list[Hit]) -> list[Hit]:
+        """Hits reordered by (position + 1) / weight, each similarity x weight.
+
+        With every weight at 1.0 the order and the similarities stay as the
+        store returned them.
+        """
+        if self._weights is None:
+            return hits
+        weights = self._weights.for_question(question)
+        scored = []
+        for position, hit in enumerate(hits):
+            weight = weights.weight(hit.chunk.id)
+            similarity = min(1.0, hit.similarity * weight)
+            scored.append(((position + 1) / weight, position, hit, similarity))
+        scored.sort(key=lambda item: item[:2])
+        return [
+            Hit(chunk=hit.chunk, similarity=similarity)
+            for _, _, hit, similarity in scored
+        ]
 
     def _keep(self, hits: list[Hit]) -> list[Hit]:
         kept = []

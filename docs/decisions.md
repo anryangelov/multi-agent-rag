@@ -650,31 +650,45 @@ confidence, tend to be overconfident"
 - A number from a formula over similarity and kind: invented weights.
 - The model rating itself: measured overconfident in the literature.
 
-### Learning: a weight per chunk
+### Learning: feedback is kept with its question
 
 **Decision.** A simulated user rates every cited source as useful (its
 document is an expected answer in the gold set) or not, and is wrong 10%
-of the time (`random.Random(42)`). Useful multiplies the chunk's weight by
-1.25, not useful by 0.8, within 0.5 to 2. The next search uses the weight
-in the order and in the 0.4 bar. Weights never move a conflict winner. The
-notebook shows the gold set before and after three rounds, on the same
-questions, on their paraphrases (`paraphrase` in `questions.yaml`) and on
-questions that received no feedback, plus one question in detail.
+of the time (`random.Random(42)`). Each rating is kept with the question it
+was given for. For a new question, a rating counts only if that question is
+close in meaning to the rated one (cosine at least 0.6); each counting
+rating multiplies the chunk's weight by 1.25 (useful) or 0.8 (not useful),
+within 0.5 to 2. The agent's search uses the weight in the order and in the
+0.4 bar. Weights never move a conflict winner. The notebook shows the gold
+set before and after three rounds, on the same questions, on their
+paraphrases (`paraphrase` in `questions.yaml`) and on questions that
+received no feedback, plus one question in detail.
 
-**Why.** A chunk is one section about one topic, so feedback on one
-question does not leak into unrelated ones. Measured: chunks cited from
-documents that are not expected answers drop from 71 to 53 on the same
-questions and from 96 to 85 on the paraphrases; on the 8 questions without
-feedback nothing changes (13 of 13 documents found). Attaching feedback to
-chunks follows [FLAIR](https://arxiv.org/pdf/2508.13390).
+**Why.** A chunk can be useful for one question and beside the point for
+another: TEC-6#5 ("log retention follows CMP-3") is an expected answer for
+Q02 and off-target for Q06. A weight per chunk, measured end to end, lost
+2 of 13 expected documents on questions that received no feedback. Kept
+with its question, feedback changes nothing on those questions (13 of 13,
+34 off-target sources before and after), cuts off-target sources on the
+same questions from 105 to 28 and on their paraphrases from 189 to 143,
+and loses no expected document. [FLAIR](https://arxiv.org/html/2508.13390)
+stores feedback the same way, as (query, document, signal) with the query
+embedding, and ignores feedback from queries below a similarity threshold.
 
 **Rejected.**
-- A weight per document: feedback about one section would punish the
-  document's other sections in unrelated questions.
+- A weight per chunk: one question's rating changes unrelated questions
+  (2 of 13 expected documents lost).
+- Counting only useful ratings: off-target sources double (105 to 207),
+  because a raised chunk enters every question.
+- A weight per document: feedback about one section would also move the
+  document's other sections.
 - Learning each domain's similarity bar: on questions without feedback it
   finds 9 of 13 documents instead of 13.
 - Learning how many chunks a domain needs to be asked: one fewer extra
   agent on 8 questions, and the learned value applies to every question.
+
+The 0.6 threshold was tuned on these 16 questions (0.7 gives about the
+same); the Phase 4 gold set checks it.
 
 ### A new version takes effect when it is added
 
