@@ -243,6 +243,7 @@ numpy==2.5.4
     # via
     #   model2vec
     #   multi-agent-rag
+    #   rank-bm25
 openai==3.39.0
     # via pydantic-ai-slim
 opentelemetry-api==1.45.1
@@ -336,6 +337,8 @@ pyzmq==27.2.0
     #   jupyter-client
     #   jupyter-console
     #   jupyter-server
+rank-bm25==0.2.2
+    # via multi-agent-rag
 referencing==0.37.0
     # via
     #   jsonschema

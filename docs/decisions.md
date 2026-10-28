@@ -71,6 +71,11 @@ knowledge lives in, and that knowledge updates can bring in at any time.
 In conflicts 3 and 4 the weaker document is the newer one, so recency alone
 picks the wrong answer.
 
+Conflicts 1 and 2 are settled by metadata: the newer version names the
+older one in `supersedes`, and search leaves superseded versions out
+unless a question asks about history. The conflict rules deal with
+conflicts 3, 4 and 5, where nothing in the metadata links the documents.
+
 **Why.** The brief asks to "handle contradictory information from different
 sources". A conflict inside one domain reaches one agent; a conflict across
 domains only becomes visible when the orchestrator combines the agents'
@@ -170,8 +175,12 @@ small and uses consistent terms; the README says so.
 
 ### The index records its embedding model
 
-**Decision.** The index stores the name of the model that built it; a
-query embedded with another model is refused with a clear error.
+**Decision.** The index stores the name of the model that built it and
+shows it. In production, where the index lives in a database and outlives
+the process, a query embedded with another model is refused with a clear
+error. In the demo the index is rebuilt at every start by the one injected
+embedder that also embeds the queries, so there is no path to a mismatch
+and no check to write.
 
 **Why.** Vectors from different models cannot be compared. A check on the
 vector size is not enough: `potion-base-8M` gives 256 numbers, and Azure's
@@ -445,3 +454,19 @@ Azure OpenAI.
 - Temporary numbers for each claim: an extra layer with no gain for the
   reader.
 - Free text without a check: an invented citation would pass unnoticed.
+
+### Superseded versions
+
+**Decision.** A superseded version stays in the index but search leaves it
+out by default; a question about history asks for it explicitly
+(`include_superseded`).
+
+**Why.** A rule that no longer applies should not take a place in the
+results or reach an answer. Old versions are still needed for audit and
+for questions such as "how many approvers did a release need in 2025?".
+
+**Rejected.**
+- Deleting the old version: no history and no audit trail.
+- Searching old versions and letting the conflict rules pick the newer:
+  outdated rules take result slots, and a wrong rule would put them in
+  the answer.

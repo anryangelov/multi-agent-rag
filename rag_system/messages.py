@@ -53,6 +53,11 @@ class Classification(StrEnum):
         return order.index(document) <= order.index(self)
 
 
+# A caller's clearance is a level on the same scale as a document's class;
+# the separate name says which role a value plays.
+Clearance = Classification
+
+
 class Status(StrEnum):
     ANSWERED = "answered"
     NOTHING_RELEVANT = "nothing_relevant"
@@ -88,7 +93,7 @@ class AgentTask(_Message):
 
     question: str
     sub_query: SubQuery
-    clearance: Classification
+    clearance: Clearance
 
 
 class Citation(_Message):

@@ -122,3 +122,13 @@ def test_eval_question_clearance_allows_its_expected_documents(question):
     clearance = Classification(question.get("clearance", "internal"))
     for doc_id in question["expected_documents"]:
         assert clearance.allows(Classification(DOCS[doc_id][0]["classification"]))
+
+
+@pytest.mark.parametrize("question", QUESTIONS, ids=lambda q: q["id"])
+def test_a_superseded_document_is_expected_only_in_a_question_about_history(question):
+    history = question.get("include_superseded", False)
+    for doc_id in question["expected_documents"]:
+        if DOCS[doc_id][0]["status"] == "superseded":
+            assert history, f"{doc_id} is superseded; mark the question as history"
+    for doc_id in question.get("forbidden_documents", []):
+        assert doc_id in DOCS

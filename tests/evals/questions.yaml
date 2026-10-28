@@ -1,8 +1,11 @@
 # Gold set for the offline evals.
 #
 # Each question lists the domains the classifier should pick and the
-# documents retrieval should return. For a conflict question both sides are
-# expected: the system has to find both before it can decide between them.
+# documents retrieval should return. For an authority conflict both sides
+# are expected: the system has to find both before it can decide between
+# them. A superseded version is not searched (it is in
+# `forbidden_documents`) unless the question asks about history
+# (`include_superseded: true`).
 # `clearance` is the access level of the person asking (default: internal).
 #
 # Questions 1-12 drive the spikes; the full set grows from them.
@@ -33,16 +36,18 @@
   expected_documents: [BUS-2, CMP-1, CMP-2, CMP-6]
 
 - id: Q04
-  purpose: conflict 1 (versions), paraphrased
+  purpose: versions (conflict 1), paraphrased; only the version in force
   question: Is one sign-off enough to ship a change to production?
   expected_domains: [technical]
-  expected_documents: [TEC-3, TEC-2]
+  expected_documents: [TEC-3]
+  forbidden_documents: [TEC-2]
 
 - id: Q05
-  purpose: conflict 2 (versions), paraphrased
+  purpose: versions (conflict 2), paraphrased; only the version in force
   question: Who must agree before we automate a process that touches customer data?
   expected_domains: [business]
-  expected_documents: [BUS-2, BUS-1]
+  expected_documents: [BUS-2]
+  forbidden_documents: [BUS-1]
 
 - id: Q06
   purpose: conflict 3 (authority, across domains), paraphrased
@@ -86,3 +91,17 @@
   question: Why did sanctions alert screening fall hours behind at the end of August?
   expected_domains: [technical]
   expected_documents: [TEC-9]
+
+- id: Q13
+  purpose: history; the superseded version answers it
+  question: How many approvers did a production release need in 2025?
+  include_superseded: true
+  expected_domains: [technical]
+  expected_documents: [TEC-2]
+
+- id: Q14
+  purpose: what changed between versions, answered by the version in force
+  question: What changed in the rules for approving a new automated process?
+  expected_domains: [business]
+  expected_documents: [BUS-2]
+  forbidden_documents: [BUS-1]

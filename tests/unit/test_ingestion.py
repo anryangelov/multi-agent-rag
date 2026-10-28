@@ -150,3 +150,14 @@ def test_chunk_ids_are_unique_and_the_same_on_every_run():
     assert first == second
     assert len(first) == len(set(first))
     assert "TEC-3#1" in first
+
+
+def test_a_chunk_carries_the_documents_metadata_but_not_its_whole_text():
+    minutes = next(d for d in load_documents(DATA) if d.id == "BUS-9")
+
+    chunks = chunk_document(minutes)
+
+    assert chunks[0].document.id == "BUS-9"
+    assert chunks[0].document.classification is Classification.INTERNAL
+    assert "body" not in chunks[0].model_dump()["document"]
+    assert len(chunks[0].model_dump_json()) < 3000

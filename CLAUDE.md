@@ -123,9 +123,10 @@ Decided by the developer.
    honestly say "tested against Azure OpenAI" (if the Azure trial gets no
    model quota, the README says the Azure path is untested).
 4. **The index remembers its embedding model.** Vectors from different
-   models cannot be compared. Each index records the model that built it;
-   a query embedded with a different model is refused with a clear error;
-   switching `EMBEDDING_PROVIDER` rebuilds the index.
+   models cannot be compared. In the demo one injected embedder builds the
+   in-memory index and embeds every query, so the index only records and
+   shows the model name; the production design (pgvector) stores the
+   model next to the vectors and refuses a query from another model.
 5. **Repo structure:** every file from the assignment's structure exists
    and stays the entry point; we add around it. Planned additions:
    `rag_system/messages.py` (the agent communication protocol: Pydantic
