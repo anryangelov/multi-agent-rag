@@ -207,22 +207,26 @@ class DomainAgent:
         #      version=2, effective_date=2026-02-01, kind=standard,
         #      owner="Platform Engineering").
         #    Returned: AgentAnswer(domain=technical, status=answered,
-        #      3 claims, best_similarity=0.42).
+        #      3 claims, best_similarity=0.42, chunks_read=3).
         if not claims:  # the model found no answer in the chunks
-            return self._nothing_relevant(best)
+            return self._nothing_relevant(best, chunks_read=len(chunks))
         return AgentAnswer(
             domain=self.domain,
             status=Status.ANSWERED,
             claims=claims,
             best_similarity=best,
+            chunks_read=len(chunks),
         )
 
-    def _nothing_relevant(self, best: float | None) -> AgentAnswer:
+    def _nothing_relevant(
+        self, best: float | None, chunks_read: int = 0
+    ) -> AgentAnswer:
         return AgentAnswer(
             domain=self.domain,
             status=Status.NOTHING_RELEVANT,
             claims=[],
             best_similarity=best,
+            chunks_read=chunks_read,
         )
 
     def _failed(self, error: str) -> AgentAnswer:

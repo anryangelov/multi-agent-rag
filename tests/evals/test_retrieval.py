@@ -150,3 +150,4 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
     }
     assert len(answer.claims) == 3
     assert round(answer.best_similarity, 2) == 0.42
+    assert answer.chunks_read == 3

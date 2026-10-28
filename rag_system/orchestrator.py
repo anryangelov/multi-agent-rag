@@ -16,6 +16,9 @@
            version, date) from the claims' and the conflicts' citations
     caller <-- FinalAnswer --
 
+Every answer is recorded, with its durations, by the Monitor if one is
+given (monitoring.py).
+
 The route is the model's decision (step 1); the order of the steps is
 this code. Agents never talk to each other: every message goes through
 here (messages.py).
@@ -23,6 +26,8 @@ here (messages.py).
 
 import asyncio
 import re
+import time
+from collections.abc import Callable
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.models import Model
@@ -40,6 +45,7 @@ from rag_system.messages import (
     FinalAnswer,
     Status,
 )
+from rag_system.monitoring import Monitor
 from rag_system.query_classifier import QueryClassifier
 from rag_system.vector_store import VectorStore
 
@@ -76,11 +82,20 @@ def cites_only_given_documents(ctx: RunContext[set[str]], text: str) -> str:
 
 class Orchestrator:
     def __init__(
-        self, store: VectorStore, model: Model, weights: ChunkWeights | None = None
+        self,
+        store: VectorStore,
+        model: Model,
+        weights: ChunkWeights | None = None,
+        monitor: Monitor | None = None,
+        clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         """`weights`: what feedback has taught (learning.py), shared by all
-        agents; without it every chunk weighs 1.0."""
+        agents; without it every chunk weighs 1.0. `monitor` records every
+        answer; `clock` measures its durations, in seconds."""
+        self._store = store
         self._model = model
+        self._monitor = monitor
+        self._clock = clock
         self._classifier = QueryClassifier(store, model)
         self._conflicts = ConflictChecker(store, model)
         self._agents = {}
@@ -96,6 +111,7 @@ class Orchestrator:
         scenario of the assignment), clearance internal, offline model.
         tests/test_scenarios.py checks that they are still true.
         """
+        started = self._clock()
         # 1. Classify: which domains, and what each is asked.
         #    Example: question is "What's the process for deploying a new
         #      microservice and what compliance checks are needed?"
@@ -108,8 +124,9 @@ class Orchestrator:
             task = AgentTask(
                 question=question, sub_query=sub_query, clearance=clearance
             )
-            calls.append(self._agents[sub_query.domain].answer(task))
-        agent_answers = list(await asyncio.gather(*calls))
+            calls.append(self._timed(self._agents[sub_query.domain], task))
+        timed = await asyncio.gather(*calls)
+        agent_answers = [agent_answer for agent_answer, _ in timed]
         #    Example: two AgentAnswers, in the order of the plan:
         #      technical   answered  10 claims, e.g. "1. Register the service
         #                  in the service catalog." citing TEC-1
@@ -143,7 +160,7 @@ class Orchestrator:
         #    Example: 18 sources, each document and section once, in the
         #    order the text cites them: TEC-1 (no section), TEC-1 "Typical
         #    first-release timeline", ... , CMP-4 "When to repeat".
-        return FinalAnswer(
+        final = FinalAnswer(
             question=question,
             plan=plan,
             agent_answers=agent_answers,
@@ -151,6 +168,18 @@ class Orchestrator:
             sources=_sources(text, claims, conflicts),
             conflicts=conflicts,
         )
+        if self._monitor is not None:
+            agent_seconds = {a.domain: seconds for a, seconds in timed}
+            seconds = self._clock() - started
+            self._monitor.record(final, seconds, agent_seconds, self._store.model)
+        return final
+
+    async def _timed(
+        self, agent: DomainAgent, task: AgentTask
+    ) -> tuple[AgentAnswer, float]:
+        started = self._clock()
+        agent_answer = await agent.answer(task)
+        return agent_answer, self._clock() - started
 
     async def _synthesise(
         self,

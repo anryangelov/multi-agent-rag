@@ -8,6 +8,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from rag_system.ingestion import Document, chunk_document
 from rag_system.learning import ChunkWeights, Rating
 from rag_system.messages import Classification, Domain, Kind, Status
+from rag_system.monitoring import Monitor, Outcome
 from rag_system.offline_model import offline_model
 from rag_system.orchestrator import NOTHING_FOUND, Orchestrator
 from rag_system.vector_store import InMemoryVectorStore
@@ -255,3 +256,40 @@ async def test_feedback_reaches_the_agents_through_the_orchestrator():
 
     assert "TEC-4#1" in [source.chunk_id for source in before.sources]
     assert "TEC-4#1" not in [source.chunk_id for source in after.sources]
+
+
+async def test_each_question_is_recorded_with_its_outcome_and_durations():
+    now = [0.0]
+    offline = offline_model().function
+
+    def taking(seconds):
+        """A model role that takes `seconds` on the injected clock."""
+
+        def role(messages, info):
+            now[0] += seconds
+            return offline(messages, info)
+
+        return role
+
+    def plan_technical_only(messages, info):
+        now[0] += 1.0
+        plan = {"sub_queries": [{"domain": "technical", "text": QUESTION}]}
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, plan)])
+
+    monitor = Monitor()
+    orchestrator = Orchestrator(
+        store_with(*RELEASE_CORPUS),
+        offline_except(plan=plan_technical_only, claims=taking(2.0)),
+        monitor=monitor,
+        clock=lambda: now[0],
+    )
+
+    await orchestrator.answer(QUESTION, Classification.INTERNAL)
+
+    [entry] = monitor.records
+    assert entry.outcome is Outcome.SUCCESSFUL
+    assert entry.seconds == 3.0
+    [technical] = entry.agents
+    assert (technical.domain, technical.seconds) == (Domain.TECHNICAL, 2.0)
+    assert technical.chunks_read == 1
+    assert entry.embedding_model == "test:word-hash-64"
