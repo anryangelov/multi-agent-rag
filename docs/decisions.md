@@ -494,3 +494,30 @@ the two.
 - Search only without a key, the question and the domain descriptions
   only with a key: two code paths, and the tests never run the path a
   real model takes.
+
+### PydanticAI agents in the documented style
+
+**Decision.** Each model role has one module-level PydanticAI `Agent`
+without a model; its validators are attached with decorators; the
+component passes its injected model, the deps and the timeout at every
+run (`agent.run(prompt, model=..., deps=..., timeout=...)`).
+
+**Why.** It is how the PydanticAI documentation shows agents ("instantiate
+one agent and use it globally", the model "can also be specified when
+running the agent"), so a reviewer who knows the library reads it at once.
+The run's own timeout replaces a hand-made one.
+
+**Rejected.**
+- An `Agent` built inside every component with its validator attached by
+  hand: works, but not the library's style, and it would repeat in the
+  classifier and the synthesis.
+
+### Worked examples in the code
+
+**Decision.** The method that runs a module's numbered steps shows, under
+each step, what happens to one real eval question (for the domain agent:
+Q04, the technical agent). An eval test checks the values in the example.
+
+**Why.** A reader follows real data through the steps instead of
+imagining it. The test keeps the comments true; the first example already
+found a bug in the offline template ("1." taken as a sentence).

@@ -152,6 +152,17 @@ Decided by the developer.
    belongs to them inside the enum (`Classification.allows`,
    `Domain.prefix`). No `Literal` for domain values: a typo in our own code
    fails at once without a type checker, and the JSON stays the same.
+10. **PydanticAI the way its documentation shows it.** One module-level
+    `Agent` per model role (no model on it), validators attached with
+    `@agent.output_validator` next to their function, and the injected
+    model passed at every run: `agent.run(prompt, model=..., deps=...,
+    timeout=...)`.
+11. **Worked examples in the entry methods.** The method that runs a
+    module's numbered steps carries, under each step, an "Example" comment
+    that follows one real eval question through it: what goes in, what
+    comes out. An eval test checks the example's values, so a comment that
+    goes stale fails the tests. The ~50-line limit counts code lines, not
+    these comments.
 
 ---
 

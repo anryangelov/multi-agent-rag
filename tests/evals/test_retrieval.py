@@ -2,14 +2,15 @@
 
 For each question of the gold set the vector store searches every expected
 domain on its own, as the domain agents do, and returns its 5 best chunks.
+The last test runs the domain agents themselves (dynamic retrieval).
 
     questions.yaml --> question, expected domains, clearance
                    --> store.search(question, domain, clearance, limit=5)
                    --> the documents of the hits
                    --> compared with expected_documents and forbidden_documents
 
-The floors are the numbers measured on 2026-10-28 (22 of 25 expected
-documents). A change that lowers them fails here.
+The floors are the numbers measured on 2026-10-28 (store 22 of 25 expected
+documents, agents 23 of 25). A change that lowers them fails here.
 """
 
 from pathlib import Path
@@ -18,8 +19,10 @@ import pytest
 import yaml
 
 from rag_system.config import Settings, build_embedder
+from rag_system.domain_agents import DomainAgent
 from rag_system.ingestion import chunk_document, load_documents
-from rag_system.messages import Classification, Domain
+from rag_system.messages import AgentTask, Classification, Domain, SubQuery
+from rag_system.offline_model import offline_model
 from rag_system.vector_store import InMemoryVectorStore
 
 ROOT = Path(__file__).parents[2]
@@ -81,3 +84,70 @@ def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(store):
 
     # The words are on two lines in the document, so search for a part.
     assert any("alert reference" in hit.chunk.text for hit in hits)
+
+
+async def test_the_domain_agents_cite_at_least_23_of_the_25_expected_documents(store):
+    """Dynamic retrieval end to end: each expected domain's agent, offline model.
+
+    Measured 2026-10-28: 23 of 25. Missed: CMP-1 for Q03, and TEC-2 for Q13,
+    because nothing in the pipeline asks for superseded versions yet.
+    """
+    agents = {domain: DomainAgent(domain, store, offline_model()) for domain in Domain}
+    found, missed = 0, []
+    for question in QUESTIONS:
+        cited = set()
+        for domain in question["expected_domains"]:
+            task = AgentTask(
+                question=question["question"],
+                sub_query=SubQuery(domain=domain, text=question["question"]),
+                clearance=question.get("clearance", "internal"),
+            )
+            answer = await agents[Domain(domain)].answer(task)
+            for claim in answer.claims:
+                cited |= {citation.doc_id for citation in claim.citations}
+        for doc_id in question["expected_documents"]:
+            if doc_id in cited:
+                found += 1
+            else:
+                missed.append(f"{question['id']}: {doc_id}")
+
+    assert found >= 23, f"found {found} of 25; missed {missed}"
+
+
+async def test_the_worked_example_in_the_domain_agent_is_still_true(store):
+    """The "Example" comments in DomainAgent._steps follow Q04; keep them true."""
+    question = next(q for q in QUESTIONS if q["id"] == "Q04")["question"]
+
+    hits = store.search(question, Domain.TECHNICAL, Classification.INTERNAL, limit=10)
+    task = AgentTask(
+        question=question,
+        sub_query=SubQuery(domain=Domain.TECHNICAL, text=question),
+        clearance=Classification.INTERNAL,
+    )
+    answer = await DomainAgent(Domain.TECHNICAL, store, offline_model()).answer(task)
+
+    # Step 1: the hits in hybrid order, with their similarity.
+    first_seven = [(hit.chunk.id, round(hit.similarity, 2)) for hit in hits[:7]]
+    assert first_seven == [
+        ("TEC-1#4", 0.33),
+        ("TEC-3#5", 0.31),
+        ("TEC-3#6", 0.42),
+        ("TEC-9#7", 0.31),
+        ("TEC-9#4", 0.25),
+        ("TEC-3#1", 0.34),
+        ("TEC-3#4", 0.31),
+    ]
+    # Steps 2 and 3: three chunks kept, one claim each.
+    claim = answer.claims[1]
+    assert claim.text == "Releases happen from Tuesday to Thursday, 09:00 to 15:00."
+    # Step 4: the citation built from the chunk id TEC-3#5.
+    assert claim.citations[0].model_dump(mode="json") == {
+        "doc_id": "TEC-3",
+        "title": "Production Release Standard",
+        "section": "Release windows",
+        "version": 2,
+        "effective_date": "2026-02-01",
+        "kind": "standard",
+    }
+    assert len(answer.claims) == 3
+    assert round(answer.confidence, 2) == 0.42
