@@ -11,8 +11,11 @@
 # to check that feedback on a question also helps when it is asked again
 # differently.
 #
+# `conflict` holds the two contradicting claims an agent would write and
+# the document whose claim should win (null: no winner).
+#
 # Questions 1-12 drive the spikes; the full set grows from them.
-# Expected answer facts and conflict winners are added later.
+# Expected answer facts are added later.
 
 - id: Q01
   purpose: test scenario 1 from the assignment
@@ -70,6 +73,13 @@
   paraphrase: For how many days are the debug logs of an API retained?
   expected_domains: [technical, compliance]
   expected_documents: [CMP-3, TEC-4]
+  conflict:
+    claims:
+      - document: TEC-4
+        text: Debug logs are kept for 30 days and then deleted.
+      - document: CMP-3
+        text: API request logs, including debug logs, are kept for 90 days.
+    winner: CMP-3
 
 - id: Q07
   purpose: conflict 4 (authority), literal
@@ -77,6 +87,15 @@
   paraphrase: May a connector from the experimental tier be used in production?
   expected_domains: [business]
   expected_documents: [BUS-3, BUS-4]
+  conflict:
+    claims:
+      - document: BUS-4
+        text: >-
+          In urgent cases, an experimental connector can be used in
+          production with the approval of your team lead.
+      - document: BUS-3
+        text: Experimental templates and connectors never run in production.
+    winner: BUS-3
 
 - id: Q08
   purpose: conflict 5 (authority, across domains), paraphrased
@@ -84,6 +103,17 @@
   paraphrase: Can we use a connector that was built by a different team?
   expected_domains: [technical, business]
   expected_documents: [BUS-3, TEC-5]
+  conflict:
+    claims:
+      - document: TEC-5
+        text: >-
+          A team-tier connector may also be used by another team if both
+          team leads agree.
+      - document: BUS-3
+        text: >-
+          A team item that another team wants to use must first become
+          certified.
+    winner: BUS-3
 
 - id: Q09
   purpose: the two confidential documents, asked with confidential clearance
@@ -148,6 +178,15 @@
     approval?
   expected_domains: [business]
   expected_documents: [BUS-4, BUS-7]
+  conflict:
+    claims:
+      - document: BUS-4
+        text: >-
+          If a new version of the workflow misbehaves, a rollback needs the
+          approval of your team lead first.
+      - document: BUS-7
+        text: A rollback is not a change and needs no approval.
+    winner: BUS-7
 
 - id: Q16
   purpose: >-
@@ -159,3 +198,15 @@
     workflows?
   expected_domains: [business, compliance]
   expected_documents: [BUS-6, CMP-7]
+  conflict:
+    claims:
+      - document: BUS-6
+        text: >-
+          The process analyst reads the audit records of the workflows they
+          assembled.
+      - document: CMP-7
+        text: >-
+          Read access to audit records is limited to Compliance, Internal
+          Audit, the Data Protection Office and, for their own workflows,
+          process owners.
+    winner: null

@@ -1,13 +1,16 @@
 """Stand-ins for external models, for unit tests only.
 
-They replace the embedding model, not our code: the vector store and the
-agents under test are real.
+They replace the embedding model or the language model, not our code: the
+vector store and the agents under test are real.
 """
 
 import re
 import zlib
 
 import numpy as np
+from pydantic_ai.models.function import FunctionModel
+
+from rag_system.offline_model import offline_model
 
 
 class WordHashEmbedder:
@@ -31,3 +34,17 @@ class BlindEmbedder:
 
     def embed(self, texts: list[str]) -> np.ndarray:
         return np.ones((len(texts), 4)) / 2.0
+
+
+def offline_except(**scripts) -> FunctionModel:
+    """Stands in for a real model: the offline templates, except the roles
+    given here (by output name), which run the given function instead."""
+    offline = offline_model().function
+
+    def model(messages, info):
+        name = info.output_tools[0].name if info.output_tools else "text"
+        if name in scripts:
+            return scripts[name](messages, info)
+        return offline(messages, info)
+
+    return FunctionModel(model)

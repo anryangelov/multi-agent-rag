@@ -83,6 +83,7 @@ async def test_the_worked_example_in_the_orchestrator_is_still_true(orchestrator
         "Technical: This guide walks a development team through the first "
         "deployment of a new microservice on the automation platform. [TEC-1]"
     )
+    assert answer.conflicts == []  # step 3: offline, none is detected
     first_two = [(s.doc_id, s.section) for s in answer.sources[:2]]
     assert first_two == [("TEC-1", None), ("TEC-1", "Typical first-release timeline")]
     assert len(answer.sources) == 18

@@ -145,6 +145,7 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
         "version": 2,
         "effective_date": "2026-02-01",
         "kind": "standard",
+        "owner": "Platform Engineering",
     }
     assert len(answer.claims) == 3
     assert round(answer.best_similarity, 2) == 0.42

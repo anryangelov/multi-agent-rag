@@ -28,7 +28,6 @@ from rag_system.ingestion import Chunk
 from rag_system.messages import (
     AgentAnswer,
     AgentTask,
-    Citation,
     Claim,
     Domain,
     Status,
@@ -40,7 +39,8 @@ You are a domain agent of a bank's automation platform assistant. The
 prompt names your domain. Answer the sub-question only from the chunks in
 the prompt. Write short claims. Each claim cites the ids of the chunks it
 comes from, e.g. "TEC-3#2". Do not add facts that are not in the chunks.
-If no chunk helps answer the sub-question, return no claims.
+When two chunks disagree, write each as its own claim. If no chunk helps
+answer the sub-question, return no claims.
 """
 
 
@@ -190,11 +190,12 @@ class DomainAgent:
         # 4. Code turns each cited chunk id into a Citation.
         claims = []
         for draft in result.output.claims:
-            citations = [_citation(chunks[chunk_id]) for chunk_id in draft.chunk_ids]
+            citations = [chunks[chunk_id].citation() for chunk_id in draft.chunk_ids]
             claims.append(Claim(text=draft.text, citations=citations))
         #    Example: "TEC-3#5" becomes Citation(doc_id="TEC-3",
         #      title="Production Release Standard", section="Release windows",
-        #      version=2, effective_date=2026-02-01, kind=standard).
+        #      version=2, effective_date=2026-02-01, kind=standard,
+        #      owner="Platform Engineering").
         #    Returned: AgentAnswer(domain=technical, status=answered,
         #      3 claims, best_similarity=0.42).
         if not claims:  # the model found no answer in the chunks
@@ -243,15 +244,3 @@ def _prompt(domain: Domain, task: AgentTask, chunks: list[Chunk]) -> str:
     for chunk in chunks:
         lines.append(f'<chunk id="{chunk.id}">\n{chunk.text}\n</chunk>')
     return "\n".join(lines)
-
-
-def _citation(chunk: Chunk) -> Citation:
-    document = chunk.document
-    return Citation(
-        doc_id=document.id,
-        title=document.title,
-        section=chunk.section,
-        version=document.version,
-        effective_date=document.effective_date,
-        kind=document.kind,
-    )

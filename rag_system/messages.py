@@ -12,9 +12,14 @@ The orchestrator is the hub; agents never talk to each other.
                     status, claims, best similarity
                     each Claim cites one or more Citations
 
+    orchestrator -- claims, clearance -------------> conflict checker
+    conflict checker -- Conflict, Conflict, ... ----> orchestrator
+                    two claims, the decision, the scores and the reason
+
     orchestrator -- FinalAnswer -------------------> caller
-                    the answer text citing [TEC-3], its sources, and the
-                    plan and partial results it was made from
+                    the answer text citing [TEC-3], its sources, its
+                    conflicts, and the plan and partial results it was
+                    made from
 
 Every message is frozen: whoever receives it cannot change it.
 """
@@ -42,6 +47,21 @@ class Kind(StrEnum):
     GUIDE = "guide"
     RUNBOOK = "runbook"
     REPORT = "report"
+
+    @property
+    def rank(self) -> int:
+        """Authority in a conflict between documents of different kinds.
+
+        A policy overrules a standard, a standard a guide, a guide a
+        runbook. A report holds facts, not rules, so it ranks lowest.
+        """
+        return {
+            "policy": 4,
+            "standard": 3,
+            "guide": 2,
+            "runbook": 1,
+            "report": 0,
+        }[self]
 
 
 class Classification(StrEnum):
@@ -114,6 +134,7 @@ class Citation(_Message):
     version: int
     effective_date: date
     kind: Kind
+    owner: str  # who must fix the document if it is wrong
 
 
 class Claim(_Message):
@@ -146,6 +167,51 @@ class AgentAnswer(_Message):
         return self
 
 
+class Decision(StrEnum):
+    """How a conflict between two claims was settled."""
+
+    KIND = "kind"  # the documents differ in kind: the stronger kind won
+    EVIDENCE = "evidence"  # same kind: more other documents support the winner
+    NO_WINNER = "no_winner"  # same kind, and the evidence is even
+
+
+class Conflict(_Message):
+    """Two claims that contradict each other, and how the conflict was settled.
+
+    The scores are the kinds' ranks (Decision.KIND) or the number of other
+    documents that support each claim; the higher score wins.
+    """
+
+    topic: str
+    claim_a: Claim
+    claim_b: Claim
+    decision: Decision
+    score_a: int
+    score_b: int
+    reason: str  # e.g. "CMP-3 (policy) overrules TEC-4 (runbook)"
+    evidence: list[Citation] = []  # the other documents that support a side
+
+    @property
+    def winner(self) -> Claim | None:
+        if self.score_a > self.score_b:
+            return self.claim_a
+        if self.score_b > self.score_a:
+            return self.claim_b
+        return None
+
+    @property
+    def loser(self) -> Claim | None:
+        if self.winner is None:
+            return None
+        return self.claim_b if self.winner is self.claim_a else self.claim_a
+
+    @model_validator(mode="after")
+    def _decision_matches_scores(self) -> "Conflict":
+        if (self.decision is Decision.NO_WINNER) != (self.score_a == self.score_b):
+            raise ValueError("a conflict has no winner exactly when its scores tie")
+        return self
+
+
 class FinalAnswer(_Message):
     """What the orchestrator returns: one answer, its sources, how it was made."""
 
@@ -154,3 +220,4 @@ class FinalAnswer(_Message):
     agent_answers: list[AgentAnswer]
     text: str  # cites document ids in brackets, e.g. [TEC-3]
     sources: list[Citation]  # each cited document and section, once
+    conflicts: list[Conflict] = []  # contradicting claims and their outcome

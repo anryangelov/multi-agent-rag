@@ -3,15 +3,14 @@
 import re
 from datetime import date
 
-from pydantic_ai.messages import ModelResponse, TextPart
-from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 
 from rag_system.ingestion import Document, chunk_document
 from rag_system.messages import Classification, Domain, Kind, Status
 from rag_system.offline_model import offline_model
 from rag_system.orchestrator import NOTHING_FOUND, Orchestrator
 from rag_system.vector_store import InMemoryVectorStore
-from tests.fakes import WordHashEmbedder
+from tests.fakes import WordHashEmbedder, offline_except
 
 
 def document(doc_id: str, body: str, domain: Domain) -> Document:
@@ -63,20 +62,6 @@ async def test_the_answer_combines_the_domains_and_cites_their_documents():
     assert all(a.status is Status.ANSWERED for a in answer.agent_answers)
     assert set(re.findall(r"\[([A-Z]{3}-\d+)\]", answer.text)) == {"TEC-3", "CMP-4"}
     assert [source.doc_id for source in answer.sources] == ["TEC-3", "CMP-4"]
-
-
-def offline_except(**scripts):
-    """Stands in for a real model: the offline templates, except the roles
-    given here (by output name), which run the given function instead."""
-    offline = offline_model().function
-
-    def model(messages, info):
-        name = info.output_tools[0].name if info.output_tools else "text"
-        if name in scripts:
-            return scripts[name](messages, info)
-        return offline(messages, info)
-
-    return FunctionModel(model)
 
 
 async def test_an_answer_citing_a_document_no_agent_gave_is_sent_back_to_fix():
@@ -137,3 +122,117 @@ async def test_when_no_agent_has_a_claim_the_answer_says_so_without_a_model():
 
     assert answer.text == NOTHING_FOUND
     assert answer.sources == []
+
+
+def detector_finding_first_two(messages, info):
+    """Stands in for the detector model: claims 1 and 2 contradict."""
+    pair = {"claim_a": 1, "claim_b": 2, "topic": "debug log retention"}
+    return ModelResponse(
+        parts=[ToolCallPart(info.output_tools[0].name, {"pairs": [pair]})]
+    )
+
+
+RETENTION_CORPUS = [
+    document(
+        "TEC-4",
+        "## Debug logging\n\nDebug logs are kept for 30 days.",
+        Domain.TECHNICAL,
+    ).model_copy(update={"kind": Kind.RUNBOOK}),
+    document(
+        "CMP-3",
+        "## Retention\n\nDebug logs of an API are kept for 90 days.",
+        Domain.COMPLIANCE,
+    ).model_copy(update={"kind": Kind.POLICY}),
+]
+
+
+async def test_an_overruled_claim_is_named_as_overruled_not_stated_as_fact():
+    orchestrator = Orchestrator(
+        store_with(*RETENTION_CORPUS),
+        offline_except(conflicts=detector_finding_first_two),
+    )
+
+    answer = await orchestrator.answer(
+        "How long are debug logs kept?", Classification.INTERNAL
+    )
+
+    [conflict] = answer.conflicts
+    assert conflict.reason == "CMP-3 (policy) overrules TEC-4 (runbook)"
+    paragraphs = answer.text.split("\n\n")
+    assert "Debug logs of an API are kept for 90 days. [CMP-3]" in answer.text
+    assert paragraphs[-1] == (
+        'Overruled: "Debug logs are kept for 30 days." [TEC-4]; '
+        "CMP-3 (policy) overrules TEC-4 (runbook)."
+    )
+    assert not any(p.startswith("Technical:") for p in paragraphs)
+    assert [source.doc_id for source in answer.sources] == ["CMP-3", "TEC-4"]
+
+
+async def test_offline_the_answer_has_no_conflicts():
+    orchestrator = Orchestrator(store_with(*RETENTION_CORPUS), offline_model())
+
+    answer = await orchestrator.answer(
+        "How long are debug logs kept?", Classification.INTERNAL
+    )
+
+    assert answer.conflicts == []
+    assert "Debug logs are kept for 30 days. [TEC-4]" in answer.text
+
+
+async def test_a_document_that_only_gave_evidence_is_cited_and_listed():
+    def plan_business_only(messages, info):
+        question = "Does a rollback of a workflow need an approval?"
+        plan = {"sub_queries": [{"domain": "business", "text": question}]}
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, plan)])
+
+    def detector_pairing_the_two_guides(messages, info):
+        prompt = messages[-1].parts[-1].content
+        number = dict(re.findall(r'<claim n="(\d+)" document="([^"]+)"', prompt))
+        first, second = sorted(number, key=lambda n: number[n])
+        pair = {"claim_a": int(first), "claim_b": int(second), "topic": "rollback"}
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"pairs": [pair]})]
+        )
+
+    def judge_backing_bus_7(messages, info):
+        prompt = messages[-1].parts[-1].content
+        ids = re.findall(r'<chunk id="([^"]+)">', prompt)
+        labels = [{"chunk_id": i, "supports": "b"} for i in ids if i.startswith("TEC")]
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"labels": labels})]
+        )
+
+    guides = [
+        document(
+            "BUS-4",
+            "## Rollback\n\nA rollback of a workflow needs an approval.",
+            Domain.BUSINESS,
+        ).model_copy(update={"kind": Kind.GUIDE}),
+        document(
+            "BUS-7",
+            "## Rollback\n\nA rollback of a workflow needs no approval.",
+            Domain.BUSINESS,
+        ).model_copy(update={"kind": Kind.GUIDE}),
+        document(
+            "TEC-3",
+            "## Rollback\n\nA rollback of a workflow follows BUS-7.",
+            Domain.TECHNICAL,
+        ),
+    ]
+    orchestrator = Orchestrator(
+        store_with(*guides),
+        offline_except(
+            plan=plan_business_only,
+            conflicts=detector_pairing_the_two_guides,
+            evidence=judge_backing_bus_7,
+        ),
+    )
+
+    answer = await orchestrator.answer(
+        "Does a rollback of a workflow need an approval?", Classification.INTERNAL
+    )
+
+    [conflict] = answer.conflicts
+    assert conflict.winner.citations[0].doc_id == "BUS-7"
+    assert answer.text.endswith("Supported by [TEC-3].")
+    assert "TEC-3" in [source.doc_id for source in answer.sources]

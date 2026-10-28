@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from rag_system.messages import Classification, Domain, Kind
+from rag_system.messages import Citation, Classification, Domain, Kind
 
 SECTION_LIMIT = 250  # words; a longer section is cut at paragraphs
 PIECE_TARGET = 150  # words; paragraphs are packed into pieces up to this size
@@ -75,6 +75,18 @@ class Chunk(BaseModel):
     document: DocumentInfo
     section: str | None  # the "## " heading; None for text outside a section
     text: str  # the document title, the heading, then the piece itself
+
+    def citation(self) -> Citation:
+        """How an answer points back to this chunk: document and section."""
+        return Citation(
+            doc_id=self.document.id,
+            title=self.document.title,
+            section=self.section,
+            version=self.document.version,
+            effective_date=self.document.effective_date,
+            kind=self.document.kind,
+            owner=self.document.owner,
+        )
 
 
 class IngestionError(ValueError):

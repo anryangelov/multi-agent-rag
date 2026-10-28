@@ -53,8 +53,10 @@ _CLAIM = re.compile(
 )
 OFFLINE_NOTE = (
     "Offline answer: composed by template from the agents' claims; "
-    "no language model was used."
+    "no language model was used, so contradictions are not detected."
 )
+# How the orchestrator writes a settled conflict into the synthesis prompt.
+_CONFLICT = re.compile(r"<conflict>(?P<sentence>.*?)</conflict>")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "1. " at the start of a list item is not the end of a sentence.
 _LIST_NUMBER = re.compile(r"^\d+\.\s+")
@@ -71,6 +73,12 @@ def _answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             output = {"sub_queries": _plan_from_chunks(prompt)}
         case "claims":
             output = {"claims": _claims_from_chunks(prompt)}
+        case "conflicts":
+            # Telling a contradiction from two related claims needs a
+            # language model; measured heuristics flag mostly false pairs.
+            output = {"pairs": []}
+        case "evidence":
+            output = {"labels": _no_support(prompt)}
         case "text":
             return ModelResponse(parts=[TextPart(_answer_from_claims(prompt))])
         case _:
@@ -79,7 +87,8 @@ def _answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
 
 
 def _answer_from_claims(prompt: str) -> str:
-    """One paragraph per domain: its claims, each followed by its sources."""
+    """One paragraph per domain: its claims, each followed by its sources;
+    then one paragraph per settled conflict, as the orchestrator wrote it."""
     paragraphs = {}
     for match in _CLAIM.finditer(prompt):
         cited = " ".join(f"[{doc_id}]" for doc_id in match["sources"].split())
@@ -88,7 +97,17 @@ def _answer_from_claims(prompt: str) -> str:
     lines = [OFFLINE_NOTE]
     for domain, sentences in paragraphs.items():
         lines.append(f"{domain.capitalize()}: " + " ".join(sentences))
+    for match in _CONFLICT.finditer(prompt):
+        lines.append(match["sentence"])
     return "\n\n".join(lines)
+
+
+def _no_support(prompt: str) -> list[dict]:
+    """Every passage of the judge's prompt labelled as supporting neither side."""
+    return [
+        {"chunk_id": match["id"], "supports": "neither"}
+        for match in _CHUNK.finditer(prompt)
+    ]
 
 
 def _plan_from_chunks(prompt: str) -> list[dict]:

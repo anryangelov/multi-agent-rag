@@ -27,6 +27,7 @@ def citation(doc_id: str = "CMP-4") -> Citation:
         version=1,
         effective_date=date(2025, 10, 1),
         kind=Kind.STANDARD,
+        owner="Compliance, Information Security",
     )
 
 
@@ -165,3 +166,14 @@ def test_each_domain_has_the_prefix_of_its_document_ids():
         Domain.BUSINESS: "BUS",
         Domain.COMPLIANCE: "CMP",
     }
+
+
+def test_in_a_conflict_a_policy_outranks_a_standard_a_guide_and_a_runbook():
+    ranked = sorted(Kind, key=lambda kind: kind.rank, reverse=True)
+    assert ranked == [
+        Kind.POLICY,
+        Kind.STANDARD,
+        Kind.GUIDE,
+        Kind.RUNBOOK,
+        Kind.REPORT,  # a report holds facts, not rules
+    ]
