@@ -19,6 +19,16 @@
 Every answer is recorded, with its durations, by the Monitor if one is
 given (monitoring.py).
 
+Other endings:
+    a question without a word  --> ValueError, before any search
+    a plan with no domain      --> "nothing answers", no agent is asked
+    a step fails after the question is accepted: the answer keeps what the
+    agents found and says what was skipped, in `warnings`
+        classifier fails  --> every domain is asked the whole question
+        detector fails    --> no conflict check
+        judge fails       --> that conflict has no winner (conflicts.py)
+        synthesis fails   --> the claims, listed as the agents wrote them
+
 The route is the model's decision (step 1); the order of the steps is
 this code. Agents never talk to each other: every message goes through
 here (messages.py).
@@ -42,8 +52,11 @@ from rag_system.messages import (
     Claim,
     Clearance,
     Conflict,
+    Domain,
     FinalAnswer,
+    Plan,
     Status,
+    SubQuery,
 )
 from rag_system.monitoring import Monitor
 from rag_system.query_classifier import QueryClassifier
@@ -64,6 +77,7 @@ NOTHING_FOUND = "The documentation holds nothing that answers this question."
 
 # A cited document id in the answer text, e.g. [TEC-3].
 _CITED_ID = re.compile(r"\[([A-Z]{3}-\d+)\]")
+_WORD = re.compile(r"\w")
 
 # The model boundary of step 3: each run gets its model from the
 # Orchestrator; its deps are the ids of the documents the claims cite.
@@ -111,11 +125,14 @@ class Orchestrator:
         scenario of the assignment), clearance internal, offline model.
         tests/test_scenarios.py checks that they are still true.
         """
+        if not _WORD.search(question):
+            raise ValueError("the question is empty")
         started = self._clock()
+        warnings = []
         # 1. Classify: which domains, and what each is asked.
         #    Example: question is "What's the process for deploying a new
         #      microservice and what compliance checks are needed?"
-        plan = await self._classifier.classify(question, clearance)
+        plan = await self._plan(question, clearance, warnings)
         #    plan: technical and compliance, each with the whole question.
 
         # 2. Ask the agents of the plan, in parallel.
@@ -136,13 +153,13 @@ class Orchestrator:
         claims = _claims(agent_answers)
         conflicts = []
         if len(claims) > 1:
-            conflicts = await self._conflicts.check(claims, clearance)
+            conflicts = await self._check(claims, clearance, warnings)
         #    Example: offline, no conflict is found (detecting one needs a
         #    language model).
 
         # 4. Synthesise one answer from the claims that stand.
         if claims:
-            text = await self._synthesise(question, agent_answers, conflicts)
+            text = await self._synthesise(question, agent_answers, conflicts, warnings)
         else:
             text = NOTHING_FOUND
         #    Example: the synthesis prompt holds the question and the 18
@@ -167,12 +184,40 @@ class Orchestrator:
             text=text,
             sources=_sources(text, claims, conflicts),
             conflicts=conflicts,
+            warnings=warnings,
         )
         if self._monitor is not None:
             agent_seconds = {a.domain: seconds for a, seconds in timed}
             seconds = self._clock() - started
             self._monitor.record(final, seconds, agent_seconds, self._store.model)
         return final
+
+    async def _plan(
+        self, question: str, clearance: Clearance, warnings: list[str]
+    ) -> Plan:
+        try:
+            return await self._classifier.classify(question, clearance)
+        except Exception as error:
+            warnings.append(
+                f"classifier failed ({_failure(error)}); every domain was asked"
+            )
+            return Plan(sub_queries=[SubQuery(domain=d, text=question) for d in Domain])
+
+    async def _check(
+        self, claims: list[Claim], clearance: Clearance, warnings: list[str]
+    ) -> list[Conflict]:
+        try:
+            conflicts = await self._conflicts.check(claims, clearance)
+        except Exception as error:
+            warnings.append(f"conflicts not checked ({_failure(error)})")
+            return []
+        for conflict in conflicts:
+            if conflict.error:
+                warnings.append(
+                    f"evidence not checked for the conflict on {conflict.topic} "
+                    f"({conflict.error})"
+                )
+        return conflicts
 
     async def _timed(
         self, agent: DomainAgent, task: AgentTask
@@ -186,14 +231,47 @@ class Orchestrator:
         question: str,
         agent_answers: list[AgentAnswer],
         conflicts: list[Conflict],
+        warnings: list[str],
     ) -> str:
         given = set()
         for citation in _citations(_claims(agent_answers), conflicts):
             given.add(citation.doc_id)
-        result = await synthesizer.run(
-            _prompt(question, agent_answers, conflicts), model=self._model, deps=given
-        )
+        try:
+            result = await synthesizer.run(
+                _prompt(question, agent_answers, conflicts),
+                model=self._model,
+                deps=given,
+            )
+        except Exception as error:
+            warnings.append(
+                f"synthesis failed ({_failure(error)}); "
+                "the claims are listed as the agents wrote them"
+            )
+            return _listed(agent_answers, conflicts)
         return result.output
+
+
+def _failure(error: Exception) -> str:
+    return f"{type(error).__name__}: {error}"
+
+
+def _listed(agent_answers: list[AgentAnswer], conflicts: list[Conflict]) -> str:
+    """The answer without a synthesis: one paragraph per domain, each claim
+    followed by its sources; then each settled conflict."""
+    overruled = [conflict.loser for conflict in conflicts if conflict.loser]
+    paragraphs = []
+    for agent_answer in agent_answers:
+        sentences = []
+        for claim in agent_answer.claims:
+            if claim not in overruled:
+                sentences.append(f"{claim.text} {_cited(claim)}")
+        if sentences:
+            paragraphs.append(
+                f"{agent_answer.domain.capitalize()}: " + " ".join(sentences)
+            )
+    for conflict in conflicts:
+        paragraphs.append(_settled(conflict))
+    return "\n\n".join(paragraphs)
 
 
 def _claims(agent_answers: list[AgentAnswer]) -> list[Claim]:

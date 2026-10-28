@@ -2,8 +2,9 @@
 
     orchestrator -- FinalAnswer, durations, embedding model --> Monitor.record
         one QuestionRecord per question:
-          outcome     successful: the answer cites a source, no agent failed
-                      partial:    the answer cites a source, an agent failed
+          outcome     successful: the answer cites a source, nothing failed
+                      partial:    the answer cites a source, but an agent
+                                  failed or the answer has a warning
                       failed:     the answer cites nothing
           per agent   status, seconds, chunks read, best similarity, error
           conflicts   decided, and without a winner
@@ -160,6 +161,6 @@ class Monitor:
 def _outcome(answer: FinalAnswer) -> Outcome:
     if not answer.sources:
         return Outcome.FAILED
-    if any(a.status is Status.FAILED for a in answer.agent_answers):
+    if answer.warnings or any(a.status is Status.FAILED for a in answer.agent_answers):
         return Outcome.PARTIAL
     return Outcome.SUCCESSFUL

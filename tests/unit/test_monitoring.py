@@ -88,6 +88,17 @@ def test_a_question_is_successful_partial_or_failed(answer, outcome):
     assert entry.embedding_model == "minishlab/potion-base-8M"
 
 
+def test_an_answer_with_a_warning_is_partial():
+    monitor = Monitor()
+    answer = final(answered(Domain.TECHNICAL, "TEC-1#1")).model_copy(
+        update={"warnings": ["conflicts not checked (TimeoutError: )"]}
+    )
+
+    record(monitor, answer)
+
+    assert monitor.records[0].outcome is Outcome.PARTIAL
+
+
 def test_the_summary_gives_the_success_rate_and_each_agents_statuses_and_time():
     monitor = Monitor()
     record(monitor, final(answered(Domain.TECHNICAL, "TEC-1#1")), seconds=2.0)

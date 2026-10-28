@@ -107,7 +107,9 @@ class SubQuery(_Message):
 class Plan(_Message):
     """The classifier's decision: which domains to ask, and what."""
 
-    sub_queries: list[SubQuery] = Field(min_length=1)
+    # Empty when the documentation covers none of the question: no agent
+    # is asked, and the answer says that nothing was found.
+    sub_queries: list[SubQuery]
 
     @model_validator(mode="after")
     def _one_sub_query_per_domain(self) -> "Plan":
@@ -192,6 +194,7 @@ class Conflict(_Message):
     score_b: int
     reason: str  # e.g. "CMP-3 (policy) overrules TEC-4 (runbook)"
     evidence: list[Citation] = []  # the other documents that support a side
+    error: str | None = None  # why the evidence could not be checked
 
     @property
     def winner(self) -> Claim | None:
@@ -211,6 +214,8 @@ class Conflict(_Message):
     def _decision_matches_scores(self) -> "Conflict":
         if (self.decision is Decision.NO_WINNER) != (self.score_a == self.score_b):
             raise ValueError("a conflict has no winner exactly when its scores tie")
+        if self.error and self.decision is not Decision.NO_WINNER:
+            raise ValueError("a conflict whose evidence was not checked has no winner")
         return self
 
 
@@ -223,3 +228,6 @@ class FinalAnswer(_Message):
     text: str  # cites document ids in brackets, e.g. [TEC-3]
     sources: list[Citation]  # each cited document and section, once
     conflicts: list[Conflict] = []  # contradicting claims and their outcome
+    # A step that failed after the agents answered, and what was done instead,
+    # e.g. "conflicts not checked (TimeoutError: ...)".
+    warnings: list[str] = []

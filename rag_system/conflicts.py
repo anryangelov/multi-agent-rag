@@ -17,6 +17,8 @@
         3. the higher score wins; equal scores: no winner
     orchestrator <-- Conflict, Conflict, ...
 
+If the judge fails, that conflict has no winner and carries the error.
+
 Models find and read (steps 1 and 2b); code decides (steps 2c and 3), so
 every outcome has a reason that can be checked. Without a key the detector
 is the offline stand-in, which finds no conflicts (offline_model.py).
@@ -150,12 +152,16 @@ class ConflictChecker:
                 if hit.chunk.document.id not in disputing:
                     passages[hit.chunk.id] = hit.chunk
 
-        # b. The judge labels each passage.
+        # b. The judge labels each passage. If the judge fails, the conflict
+        #    stays open: no evidence counted is not evidence against a side.
         labels = []
         if passages:
-            result = await judge.run(
-                _judge_prompt(a, b, passages), model=self._model, deps=passages
-            )
+            try:
+                result = await judge.run(
+                    _judge_prompt(a, b, passages), model=self._model, deps=passages
+                )
+            except Exception as error:
+                return _unchecked(topic, a, b, f"{type(error).__name__}: {error}")
             labels = result.output.labels
 
         # c. Count the supporting documents of each side.
@@ -214,6 +220,23 @@ def _by_count(
         score_b=len(for_b),
         reason=reason,
         evidence=evidence,
+    )
+
+
+def _unchecked(topic: str, a: Claim, b: Claim, error: str) -> Conflict:
+    source_a, source_b = _source(a), _source(b)
+    return Conflict(
+        topic=topic,
+        claim_a=a,
+        claim_b=b,
+        decision=Decision.NO_WINNER,
+        score_a=0,
+        score_b=0,
+        reason=(
+            f"the evidence could not be checked; ask the owners: "
+            f"{source_a.owner}; {source_b.owner}"
+        ),
+        error=error,
     )
 
 

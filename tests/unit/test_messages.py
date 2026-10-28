@@ -36,9 +36,9 @@ def claim() -> Claim:
     return Claim(text="Complete the checklist first.", citations=[citation()])
 
 
-def test_a_plan_needs_at_least_one_sub_query():
-    with pytest.raises(ValidationError):
-        Plan(sub_queries=[])
+def test_a_plan_may_ask_no_domain():
+    """A question the documentation does not cover: no agent is asked."""
+    assert Plan(sub_queries=[]).sub_queries == []
 
 
 def test_a_plan_asks_each_domain_at_most_once():
