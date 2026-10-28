@@ -58,15 +58,21 @@ knowledge lives in, and that knowledge updates can bring in at any time.
 
 ### Deliberate contradictions
 
-**Decision.** Five contradictions are written into the corpus:
+**Decision.** Seven contradictions are written into the corpus:
 
-| # | Documents | Kind | Resolved in |
+| # | Documents | Kind | Settled by |
 |---|---|---|---|
-| 1 | TEC-2 vs TEC-3 | an older and a newer version | the technical agent |
-| 2 | BUS-1 vs BUS-2 | an older and a newer version | the business agent |
-| 3 | TEC-4 vs CMP-3 | a runbook vs a policy | the orchestrator (two domains) |
-| 4 | BUS-4 vs BUS-3 | a guide vs a policy | the business agent |
-| 5 | TEC-5 vs BUS-3 | a guide vs a policy | the orchestrator (two domains) |
+| 1 | TEC-2 vs TEC-3 | an older and a newer version | metadata (`supersedes`) |
+| 2 | BUS-1 vs BUS-2 | an older and a newer version | metadata (`supersedes`) |
+| 3 | TEC-4 vs CMP-3 | a runbook vs a policy | kind |
+| 4 | BUS-4 vs BUS-3 | a guide vs a policy | kind |
+| 5 | TEC-5 vs BUS-3 | a guide vs a policy | kind |
+| 6 | BUS-4 vs BUS-7 | two guides | evidence (TEC-3 refers rollbacks to BUS-7) |
+| 7 | BUS-6 vs CMP-7 | two standards | no winner (no other document takes a side) |
+
+Conflicts 6 and 7 were added in Phase 3, with eval questions Q15 and Q16,
+so that both outcomes of the same-kind rule (see "Conflicts are resolved
+by confidence scores") run on real documents.
 
 In conflicts 3 and 4 the weaker document is the newer one, so recency alone
 picks the wrong answer.
@@ -74,7 +80,7 @@ picks the wrong answer.
 Conflicts 1 and 2 are settled by metadata: the newer version names the
 older one in `supersedes`, and search leaves superseded versions out
 unless a question asks about history. The conflict rules deal with
-conflicts 3, 4 and 5, where nothing in the metadata links the documents.
+conflicts 3 to 7, where nothing in the metadata links the documents.
 
 **Why.** The brief asks to "handle contradictory information from different
 sources". A conflict inside one domain reaches one agent; a conflict across
@@ -84,7 +90,8 @@ answers, so both kinds are needed.
 **Rejected.**
 - Version conflicts only: they do not involve "different sources".
 - A conflict with no winner, shown to the user as is: its rule belongs
-  with the conflict resolution rules and can be added there.
+  with the conflict resolution rules and can be added there (it was, in
+  Phase 3, as conflict 7).
 
 ### Document classification as a retrieval filter
 
@@ -545,3 +552,201 @@ model call each.
 **Rejected.**
 - Hybrid ranking for the classifier too: one search method, but 6 more
   extra agents on 14 questions.
+
+## Advanced features
+
+### Conflicts are resolved by confidence scores
+
+**Decision.** Each side of a conflict gets a confidence score; the higher
+score wins.
+1. Different `kind`: the score is the kind's rank (policy 4, standard 3,
+   guide 2, runbook 1, report 0). A report holds facts, not rules.
+2. Same `kind`: the score is the number of other documents that support
+   the claim. For each side, the store is searched with the claim's text
+   over all domains, with the caller's clearance; the two disputing
+   documents are left out of the results. A judge model labels each found
+   chunk "supports A", "supports B" or "neither", and code counts
+   supporting documents, not chunks.
+3. A difference of at least one wins. Equal scores mean no winner: the
+   answer shows both claims and names both documents' owners.
+
+The answer states the winner and the reason, for example "CMP-3 (policy)
+overrules TEC-4 (runbook)" or "TEC-3 refers rollbacks to BUS-7".
+
+**Why.** The brief asks to "handle contradictory information from different
+sources using confidence scoring". With the kind hidden, the three
+authority conflicts test each candidate signal: the later date is right in
+1 of 3; how directly each side is worded is equal in all three; the
+evidence count is right in 2 and equal in 1, never wrong. Between kinds,
+a bank's hierarchy applies (a runbook cannot overrule a policy), the way
+law puts a higher rule before a later one.
+
+**Rejected.**
+- The later date first, then the kind: 1 of 3 right; in conflicts 3 and 4
+  the weaker document is the newer one.
+- The model decides with no fixed rule: not repeatable, and an audit
+  cannot check why a side won.
+- A score from how directly each side is worded: equal in all three
+  conflicts, so the winner would be chance.
+- A weighted sum of date, wording and evidence: invented weights that
+  three conflicts cannot calibrate.
+- Retrieval similarity as a tie-breaker: it measures how close a text is
+  to the question, not whether it is right.
+
+### One conflict check, in the orchestrator
+
+**Decision.** A new step between the agents' answers and the synthesis:
+a detector model receives every claim with its document, kind and date and
+returns the pairs that contradict; `conflicts.py` scores each pair and the
+synthesis receives the winner and the reason. The agents' instructions say
+to write two disagreeing chunks as two separate claims.
+
+**Why.** All claims reach the orchestrator, including both sides of a
+conflict inside one domain (Q07 brings BUS-4 and BUS-3 from the business
+agent), so one place sees every conflict.
+
+**Rejected.**
+- A check in each agent and another in the orchestrator: the same job
+  twice, up to four more model calls per question, nothing found that one
+  check misses.
+- Leaving it to the synthesis: the model would pick the winner, and a test
+  could only read the text.
+
+### Offline, conflicts are not detected
+
+**Decision.** The offline stand-in finds no conflicts and says so in its
+note; the answer shows both claims. The scoring rule is tested with the
+pair given; detection is checked by the LLM evals.
+
+**Why.** The best heuristic measured (similar claims with different numbers
+or a one-sided negation) finds the right pair in 1 of 3 conflicts and flags
+50 false pairs on 16 questions; each false pair would drop a true claim.
+
+**Rejected.**
+- That heuristic: 1 of 3, 50 false conflicts.
+- A list of known conflicts: a lookup written for our questions, blind to
+  any new document.
+
+### No confidence level for the whole answer
+
+**Decision.** The final answer carries the scores and reasons of its
+conflicts, not a separate confidence level. The agent's number is renamed
+from `confidence` to `best_similarity`: it decides "nothing relevant" and
+is shown by monitoring.
+
+**Why.** The brief ties confidence scoring to conflicts. Retrieval
+similarity is not confidence: needed and extra domains overlap between
+0.44 and 0.54 here, and others report the same
+([answerable and unanswerable questions "overlap from 0.31 to 0.59"](https://dev.to/klausbyskov/retrieval-confidence-cant-tell-your-rag-chatbot-when-the-answer-is-missing-2ml0)).
+A model's own rating is no better: "LLMs, when verbalizing their
+confidence, tend to be overconfident"
+([Xiong et al.](https://arxiv.org/abs/2306.13063)).
+
+**Rejected.**
+- A level (high, medium, low) for each answer: the brief does not ask for
+  it, and a failed agent is already visible in the answer.
+- A number from a formula over similarity and kind: invented weights.
+- The model rating itself: measured overconfident in the literature.
+
+### Learning: a weight per chunk
+
+**Decision.** A simulated user rates every cited source as useful (its
+document is an expected answer in the gold set) or not, and is wrong 10%
+of the time (`random.Random(42)`). Useful multiplies the chunk's weight by
+1.25, not useful by 0.8, within 0.5 to 2. The next search uses the weight
+in the order and in the 0.4 bar. Weights never move a conflict winner. The
+notebook shows the gold set before and after three rounds, on the same
+questions, on their paraphrases (`paraphrase` in `questions.yaml`) and on
+questions that received no feedback, plus one question in detail.
+
+**Why.** A chunk is one section about one topic, so feedback on one
+question does not leak into unrelated ones. Measured: chunks cited from
+documents that are not expected answers drop from 71 to 53 on the same
+questions and from 96 to 85 on the paraphrases; on the 8 questions without
+feedback nothing changes (13 of 13 documents found). Attaching feedback to
+chunks follows [FLAIR](https://arxiv.org/pdf/2508.13390).
+
+**Rejected.**
+- A weight per document: feedback about one section would punish the
+  document's other sections in unrelated questions.
+- Learning each domain's similarity bar: on questions without feedback it
+  finds 9 of 13 documents instead of 13.
+- Learning how many chunks a domain needs to be asked: one fewer extra
+  agent on 8 questions, and the learned value applies to every question.
+
+### A new version takes effect when it is added
+
+**Decision.** The store derives whether a document is in force from the
+`supersedes` links: a document that another held document supersedes is
+history. The `status` field leaves the metadata. A knowledge update is one
+`store.add()`.
+
+**Why.** "TEC-3 replaces TEC-2" was written in two files. A new version
+added at run time would leave the old file saying "current", and both
+versions would answer.
+
+**Rejected.**
+- `add()` changes the old document's status in memory: after a restart
+  the old file says "current" again.
+- The new version deletes the old one: no history, no audit.
+
+### Who asks for old versions
+
+**Decision.** Each sub-query in the plan has `include_history`; the
+classifier's model sets it when the question asks about the past or an
+old version, and the agent passes it to the search. Offline it is always
+false.
+
+**Why.** Recognising that a question is about the past is language
+understanding. One of the 16 questions needs it (Q13, "in 2025").
+
+**Rejected.**
+- Keywords in code: "in 2026" would switch history on without need, and
+  "before the new standard" would not.
+- Always searching old versions: outdated rules take result slots.
+
+### Monitoring
+
+**Decision.** `monitoring.py` keeps one record per question in memory: per
+agent the status, duration, chunks kept, best similarity and error; per
+question the total duration, the conflicts (decided, no winner) and the
+embedding model. A question is successful when its answer cites at least
+one source and no agent failed, partial when it has an answer but an agent
+failed, failed otherwise. The summary gives the success rate and, per
+agent, the share of each status, the mean duration and the share of
+sources rated useful. The clock is injected.
+
+**Why.** "Query success" is a notion of this system, so it is defined and
+tested here. Production would send the same records to OpenTelemetry,
+which PydanticAI already uses for model calls.
+
+**Rejected.**
+- PydanticAI's instrumentation alone: needs a backend to view, and has no
+  notion of a successful question.
+- Records in a file or SQLite: more code that the demo does not need.
+
+### Errors
+
+**Decision.**
+1. A question with no word is refused before the search
+   (`ValueError("the question is empty")`).
+2. A plan may name no domain; the answer is then "nothing that answers"
+   and no agent is called.
+3. A failure after the agents keeps the answer and adds a warning: the
+   classifier fails, so all three domains are asked; the detector fails,
+   so conflicts are not checked; the judge fails, so the conflict has no
+   winner; the synthesis fails, so code lists the claims with their
+   citations.
+4. Monitoring counts such a question as partial.
+
+**Why.** Today an empty question crashes (`Plan` needs a domain), and any
+model failure outside the agents escapes `answer()`. The agents' claims
+are valid even when a later step fails, so the user should get them.
+Network errors and rate limits are already retried by the provider SDKs.
+
+**Rejected.**
+- One error naming the failed step: the user loses valid claims when only
+  the synthesis failed.
+- Our own retries with backoff: the SDKs already retry, and a real outage
+  still ends in an error.
+

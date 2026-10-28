@@ -137,8 +137,9 @@ Decided by the developer.
    truly generic helpers.
 6. **The notebook runs with no key and no `.env`.** The design targets the
    model mode; the offline mode is a deterministic stand-in for tests and
-   key-less runs (templated answers) and says so. The committed notebook
-   carries the outputs of a real model run.
+   key-less runs (templated answers) and says so. What the offline mode
+   cannot do is never a cost or a gain of a design option. The committed
+   notebook carries the outputs of a real model run.
 7. **Floors, top-down.** Each file answers one question. `orchestrator.py`
    is START HERE ("what happens when a question arrives?"); one floor down
    `query_classifier.py` and `domain_agents.py`; below them
