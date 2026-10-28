@@ -470,3 +470,27 @@ for questions such as "how many approvers did a release need in 2025?".
 - Searching old versions and letting the conflict rules pick the newer:
   outdated rules take result slots, and a wrong rule would put them in
   the answer.
+
+### The classifier searches before the model decides
+
+**Decision.** In both modes the classifier first searches the whole corpus
+and passes the 8 nearest chunks, each with its domain, to the model
+together with the question. With a key the model decides the route from
+the question and that evidence. Without a key one offline `FunctionModel`
+stands in for the model in every role; for the classifier it picks every
+domain that holds at least one of the 8 chunks (the rule above).
+
+**Why.** The tests without a key then run the same code as a real model
+run: the prompt, the structured output and the citation check. The
+domains of this corpus overlap (deploying a service is technical, its
+checks are compliance), and routing from the question alone fails where
+source boundaries are unclear. Measured here: similarity to domain
+descriptions found 12 of 18 expected domains, the search found 18 of 18.
+The common practice routes from the question and source descriptions
+only; the README says why this design differs and the LLM evals compare
+the two.
+
+**Rejected.**
+- Search only without a key, the question and the domain descriptions
+  only with a key: two code paths, and the tests never run the path a
+  real model takes.
