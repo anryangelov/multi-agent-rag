@@ -48,27 +48,54 @@ picks the stronger one, says so, and shows what it overruled.
 
 ## The idea
 
+One question goes down the picture. Each box says what a **model** does
+(read or write text) and what **code** does (search, check, decide); each
+arrow says what is passed on.
+
+```mermaid
+flowchart TD
+    Q["An employee asks a question<br/>(with their clearance: public, internal or confidential)"]
+
+    subgraph CLS["1. Query classifier"]
+        C1["code: searches every document the asker may read,<br/>takes the 8 closest chunks"]
+        C2["model: reads the question and those chunks,<br/>picks the departments to ask,<br/>writes a sub-question for each"]
+    end
+
+    subgraph AGS["2. Domain agents, in parallel; they never talk to each other"]
+        T["Technical agent<br/>code: searches only technical documents,<br/>keeps the 8 best chunks (up to 10)<br/>model: writes claims, each citing its chunks"]
+        B["Business agent<br/>same steps,<br/>business documents only"]
+        P["Compliance agent<br/>same steps,<br/>compliance documents only"]
+    end
+
+    subgraph CON["3. Conflict check"]
+        K1["model: finds pairs of claims<br/>that cannot both be true"]
+        K2["code: picks the winner<br/>the stronger kind wins: policy, standard, guide, runbook;<br/>same kind: the side more other documents support;<br/>a tie: no winner, both shown"]
+    end
+
+    subgraph SYN["4. Synthesis"]
+        S1["model: writes one answer<br/>citing documents as [CMP-3]"]
+        S2["code: checks every cited id,<br/>builds the source list itself"]
+    end
+
+    A["The answer, its sources,<br/>the settled conflicts and any warnings"]
+
+    Q -->|"question + clearance"| C1
+    C1 -->|"8 chunks, each with its department"| C2
+    C2 -->|"technical sub-question"| T
+    C2 -->|"business sub-question"| B
+    C2 -->|"compliance sub-question"| P
+    T -->|"claims + citations"| K1
+    B -->|"claims + citations"| K1
+    P -->|"claims + citations"| K1
+    K1 -->|"the contradicting pairs"| K2
+    K2 -->|"claims that stand + each winner and its reason"| S1
+    S1 -->|"draft answer"| S2
+    S2 -.->|"cites a document the agents never read: write again"| S1
+    S2 -->|"checked answer"| A
 ```
- question
-    |
-    v
- classifier ---- reads the 8 closest chunks of the whole corpus,
-    |            picks the departments to ask, writes a sub-question for each
-    +--------------------+--------------------+
-    v                    v                    v
- technical agent     business agent     compliance agent
- (in parallel; each searches only its own documents and writes claims,
-  each claim citing the chunks it comes from)
-    +--------------------+--------------------+
-    v
- conflict check ---- a model finds claims that contradict each other;
-    |                code picks the winner by fixed rules
-    v
- synthesis --------- a model writes the answer citing [CMP-3] ...;
-    |                code checks every cited id and lists the sources
-    v
- answer, sources, conflicts, warnings
-```
+
+A department the question does not need is not asked; an agent that finds
+nothing close enough says "nothing relevant" instead of writing claims.
 
 Four principles:
 
