@@ -71,7 +71,7 @@ async def test_the_worked_example_in_the_orchestrator_is_still_true(orchestrator
     agents = [(a.domain, a.status, len(a.claims)) for a in answer.agent_answers]
     assert agents == [
         (Domain.TECHNICAL, Status.ANSWERED, 10),
-        (Domain.COMPLIANCE, Status.ANSWERED, 8),
+        (Domain.COMPLIANCE, Status.ANSWERED, 9),
     ]
     technical_claims = [claim.text for claim in answer.agent_answers[0].claims]
     assert "1. Register the service in the service catalog." in technical_claims
@@ -82,8 +82,8 @@ async def test_the_worked_example_in_the_orchestrator_is_still_true(orchestrator
     assert answer.conflicts == []  # step 3: offline, none is detected
     first_two = [(s.doc_id, s.section) for s in answer.sources[:2]]
     assert first_two == [("TEC-1", None), ("TEC-1", "Typical first-release timeline")]
-    assert len(answer.sources) == 18
+    assert len(answer.sources) == 19
     assert (answer.sources[-1].doc_id, answer.sources[-1].section) == (
-        "CMP-4",
-        "When to repeat",
+        "CMP-6",
+        "What the reviewer checks",
     )

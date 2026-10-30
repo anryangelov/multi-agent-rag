@@ -154,7 +154,7 @@ class Orchestrator:
         #    Example: two AgentAnswers, in the order of the plan:
         #      technical   answered  10 claims, e.g. "1. Register the service
         #                  in the service catalog." citing TEC-1
-        #      compliance  answered   8 claims
+        #      compliance  answered   9 claims
 
         # 3. Check whether claims contradict each other.
         claims = _claims(agent_answers)
@@ -169,7 +169,7 @@ class Orchestrator:
             text = await self._synthesise(question, agent_answers, conflicts, warnings)
         else:
             text = NOTHING_FOUND
-        #    Example: the synthesis prompt holds the question and the 18
+        #    Example: the synthesis prompt holds the question and the 19
         #    claims, one per line:
         #      <claim domain="technical" sources="TEC-1">1. Register the
         #      service in the service catalog.</claim>
@@ -181,9 +181,9 @@ class Orchestrator:
         #      platform. [TEC-1] ...
 
         # 5. List the sources the answer cites.
-        #    Example: 18 sources, each document and section once, in the
+        #    Example: 19 sources, each document and section once, in the
         #    order the text cites them: TEC-1 (no section), TEC-1 "Typical
-        #    first-release timeline", ... , CMP-4 "When to repeat".
+        #    first-release timeline", ... , CMP-6 "What the reviewer checks".
         final = FinalAnswer(
             question=question,
             plan=plan,

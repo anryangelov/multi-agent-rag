@@ -345,3 +345,268 @@
   expected_domains: [business, compliance]
   expected_documents: [BUS-2, CMP-1, CMP-3]
   expected_facts: [Process Board, always confidential]
+
+# Held-out, second batch (Q26-Q54): written by three other models from the
+# titles alone after the first held-out run; no paraphrases (the learning
+# eval uses only the tuning questions). Run once with the thresholds frozen.
+
+- id: Q26
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Our workflow runs several services behind the scenes. How can I see which parts of the platform handle each step?
+  expected_domains: [technical]
+  expected_documents: [TEC-6, TEC-8]
+  expected_facts: [correlation id]
+
+- id: Q27
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We have several ideas for automation but limited developer time. How should we compare them and decide which one is worth doing first?
+  expected_domains: [business]
+  expected_documents: [BUS-5]
+  expected_facts: [Payback period]
+
+- id: Q28
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    I'm sharing a spreadsheet of customer account balances with another internal team, but it has no names. How should I label this data?
+  expected_domains: [compliance]
+  expected_documents: [CMP-1]
+  expected_facts: [always confidential]
+
+- id: Q29
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We're choosing between an existing connector and building our own for a new process. What should we consider, and who should take responsibility for it?
+  expected_domains: [business, technical]
+  expected_documents: [BUS-4, TEC-5]
+  expected_facts: [Prefer certified connectors]
+
+- id: Q30
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We want to automate employee absence requests and send the details to managers. Who needs to agree, and how should we protect the employee information?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-2, CMP-1]
+  expected_facts: [head of the requesting department]
+
+- id: Q31
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Our developer wants to send invoice text to Azure OpenAI to extract payment details. What data can be sent, and what checks are needed before using it?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-2, CMP-2, CMP-6]
+  expected_facts: [four-eyes review, Data Protection Office]
+
+- id: Q32
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    Can you tell me which meeting rooms are available next Wednesday for a workshop with the process owners?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []
+
+- id: Q33
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    Does the bank offer employees a budget for external training courses on automation and software development?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []
+
+- id: Q34
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Our team wants to automate a manual task that involves several departments. What information should I collect from them before development starts?
+  expected_domains: [business]
+  expected_documents: [BUS-4]
+  expected_facts: [at least three real cases]
+
+- id: Q35
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    A workflow is completing successfully but takes twice as long as usual. How can we find out where the delay is happening?
+  expected_domains: [technical]
+  expected_documents: [TEC-4, TEC-6]
+  expected_facts: [sort the spans of slow requests by duration]
+
+- id: Q36
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We need to test a new vendor connection using real customer records. What safeguards must be in place before testing, and what data are we allowed to use?
+  expected_domains: [compliance, technical]
+  expected_documents: [CMP-1, TEC-1, TEC-5]
+  expected_facts: [masked copies of production data, test instance]
+
+- id: Q37
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    A process owner wants to add a new step that sends customer account details by email. Who needs to approve this change, and what security rules must we follow?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-7, CMP-1]
+  expected_facts: [only encrypted]
+
+- id: Q38
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    One of our shared connectors keeps failing after a developer changes its configuration. Who should investigate the issue, and what should they check before restoring the service?
+  expected_domains: [technical]
+  expected_documents: [TEC-7]
+  expected_facts: [Investigation comes after]
+
+- id: Q39
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Where can I check CPU usage and error rates for my running bot?
+  expected_domains: [technical]
+  expected_documents: [TEC-6]
+  expected_facts: [error rate per endpoint]
+
+- id: Q40
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    What tasks should I handle as the process analyst while our team maps out onboarding steps?
+  expected_domains: [business]
+  expected_documents: [BUS-6]
+  expected_facts: [Maps the process end to end]
+
+- id: Q41
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Are customer home addresses considered internal or confidential information?
+  expected_domains: [compliance]
+  expected_documents: [CMP-1]
+  expected_facts: [always confidential]
+
+- id: Q42
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Can I send customer chat transcripts to Azure OpenAI via an API call in my script?
+  expected_domains: [compliance]
+  expected_documents: [CMP-2]
+  expected_facts: [certified AI connector, pseudonymised]
+
+- id: Q43
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Does changing our automated payroll calculation rule require a second person to sign off?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-7, CMP-6]
+  expected_facts: [four-eyes review]
+
+- id: Q44
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We need a custom connector to pull sales data; should we build it as a team tier or experimental?
+  expected_domains: [business]
+  expected_documents: [BUS-3]
+  expected_facts: [never run in production]
+
+- id: Q45
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    How do I request a software license for UiPath Studio on my laptop?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []
+
+- id: Q46
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    What is the company policy for claiming travel expenses when visiting the branch office?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []
+
+- id: Q47
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    My new service calls two other services. What do I need to add so we can follow one slow request from start to finish?
+  expected_domains: [technical]
+  expected_documents: [TEC-6]
+  expected_facts: [correlation id]
+
+- id: Q48
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Our workflow makes a daily list of customers with overdue loans. How sensitive is that list, and who can we share it with?
+  expected_domains: [compliance]
+  expected_documents: [CMP-1]
+  expected_facts: [always confidential]
+
+- id: Q49
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Once a workflow is live, who is responsible for it: the person who built it or the team that asked for it?
+  expected_domains: [business]
+  expected_documents: [BUS-6]
+  expected_facts: [Accountable for the process and its results]
+
+- id: Q50
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    When a call fails, our service logs the full request, including customer names and IBANs. Is that allowed, and what should we hide?
+  expected_domains: [compliance]
+  expected_documents: [CMP-5]
+  expected_facts: [masked before it is written]
+
+- id: Q51
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    We want AI to sort customer complaints by topic. What savings must we show to get it approved, and can the complaint text go to the AI?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-5, CMP-2]
+  expected_facts: [12 months, pseudonymised]
+
+- id: Q52
+  purpose: held-out, second batch
+  heldout: true
+  question: >-
+    Our connector has worked fine for months and other teams want to use it. How do we make it officially supported, and what tests does it need first?
+  expected_domains: [business, technical]
+  expected_documents: [BUS-3, TEC-5]
+  expected_facts: [contract tests, named owner]
+
+- id: Q53
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    A contractor joins my team on Monday. How do I get them a login for the platform?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []
+
+- id: Q54
+  purpose: held-out, second batch; no document answers it
+  heldout: true
+  question: >-
+    Can I change the language of the workflow designer screens?
+  expected_domains: []
+  expected_documents: []
+  expected_facts: []

@@ -11,7 +11,7 @@ The last test runs the domain agents themselves (dynamic retrieval).
 
 The floors are the numbers measured on 2026-10-30 (store 29 of 32 expected
 documents, agents 29 of 32, mean reciprocal rank 0.75, expected facts in the
-kept chunks 20 of 24). A change that lowers
+kept chunks 22 of 24). A change that lowers
 them fails here.
 """
 
@@ -83,19 +83,20 @@ async def test_the_domain_agents_cite_at_least_29_of_the_32_expected_documents(
     assert found >= 29, f"found {found} of 32; missed {missed}"
 
 
-async def test_the_chunks_the_agents_keep_hold_at_least_20_of_the_24_expected_facts(
+async def test_the_chunks_the_agents_keep_hold_at_least_22_of_the_24_expected_facts(
     corpus_store,
 ):
     """Did the fact reach the model? The whole pipeline, offline.
 
-    Measured 2026-10-30: 20 of 24. Missed: Q08 (the BUS-3 chunk scores 0.32
-    and is dropped), Q10 (the TEC-7 "Who to call" chunk is not kept), Q13 and
-    Q17 (offline nothing asks for superseded versions).
+    Measured 2026-10-30: 22 of 24. Missed: Q13 and Q17 (offline nothing asks
+    for superseded versions). With 3 chunks always kept instead of 8 it was
+    20: the chunks with the facts of Q08 and Q10 rank 4th and 8th with a
+    similarity of 0.32 and 0.30.
     """
     found, expected, missed = await fact_counts(corpus_store, QUESTIONS)
 
     assert expected == 24
-    assert found >= 20, f"found {found} of {expected}; missed {missed}"
+    assert found >= 22, f"found {found} of {expected}; missed {missed}"
 
 
 async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store):
@@ -125,7 +126,8 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
         ("TEC-3#1", 0.34),
         ("TEC-3#4", 0.31),
     ]
-    # Steps 2 and 3: three chunks kept, one claim each.
+    # Steps 2 and 3: the first eight chunks kept, one claim each; TEC-3#4
+    # (section "Approvals", the two approvers) is among them.
     claim = answer.claims[1]
     assert claim.text == "Releases happen from Tuesday to Thursday, 09:00 to 15:00."
     # Step 4: the citation built from the chunk id TEC-3#5.
@@ -139,6 +141,7 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
         "kind": "standard",
         "owner": "Platform Engineering",
     }
-    assert len(answer.claims) == 3
+    assert len(answer.claims) == 8
+    assert "TEC-3#4" in {c.citations[0].chunk_id for c in answer.claims}
     assert round(answer.best_similarity, 2) == 0.42
-    assert answer.chunks_read == 3
+    assert answer.chunks_read == 8

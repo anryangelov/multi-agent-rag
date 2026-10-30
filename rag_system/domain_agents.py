@@ -26,7 +26,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext, ToolOutput
 from pydantic_ai.models import Model
 
 from rag_system.ingestion import Chunk
-from rag_system.learning import ChunkWeights
+from rag_system.learning import ChunkWeights, QuestionWeights
 from rag_system.messages import (
     AgentAnswer,
     AgentTask,
@@ -56,13 +56,15 @@ class RetrievalParams(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    min_chunks: int = 3
+    min_chunks: int = 8
     max_chunks: int = 10
     min_similarity: float = 0.4
 
 
 # The values decided in dynamic retrieval. They are set per domain and are
 # equal for now: no measurement shows a reason for different values.
+# min_chunks was 3 until a check of answer facts showed that the chunk with
+# the fact often ranks 4th to 8th with a similarity of only 0.30-0.32.
 DEFAULT_RETRIEVAL = RetrievalParams()
 # Hits read from the store before weights reorder them: a chunk with a high
 # learned weight can come up from below the first max_chunks.
@@ -161,19 +163,20 @@ class DomainAgent:
             limit=CANDIDATES,
             include_superseded=task.sub_query.include_history,
         )
-        hits = self._weighted(task.question, hits)[: self._params.max_chunks]
+        weights = self._weights.for_question(task.question) if self._weights else None
+        hits = self._weighted(weights, hits)[: self._params.max_chunks]
 
         # 2. Keep the chunks that match the sub-question; if even the best
         #    one is too far from it, this domain has nothing to add.
         best = max((hit.similarity for hit in hits), default=0.0)
         if best < self._params.min_similarity:
             return self._nothing_relevant(best if hits else None)
-        kept = self._keep(hits)
+        kept = self._keep(hits, weights)
         chunks = {hit.chunk.id: hit.chunk for hit in kept}
         #    Example: best is 0.42 (TEC-3#6), not below 0.4, so the agent
-        #    goes on. kept: the first 3 always (TEC-1#4, TEC-3#5, TEC-3#6);
-        #    none of the other 7 reaches 0.4, so they are left out, also
-        #    TEC-3#4 (section "Approvals", 0.31).
+        #    goes on. kept: the first 8 always, from TEC-1#4 to TEC-3#4
+        #    (section "Approvals", 0.31: the chunk that says two approvers);
+        #    neither of the last 2 reaches 0.4, so they are left out.
 
         # 3. The model writes claims that cite chunk ids.
         result = await claims_writer.run(
@@ -191,7 +194,7 @@ class DomainAgent:
         #      <chunk id="TEC-1#4">
         #      (the document title, the heading, the text of the chunk)
         #      </chunk>
-        #      ... the same for TEC-3#5 and TEC-3#6
+        #      ... the same for the other 7 kept chunks
         #    result.output, from the offline model: one claim per chunk,
         #      DraftClaim(text="Releases happen from Tuesday to Thursday,
         #                 09:00 to 15:00.", chunk_ids=["TEC-3#5"]), ...
@@ -237,15 +240,14 @@ class DomainAgent:
             error=error,
         )
 
-    def _weighted(self, question: str, hits: list[Hit]) -> list[Hit]:
+    def _weighted(self, weights: QuestionWeights | None, hits: list[Hit]) -> list[Hit]:
         """Hits reordered by (position + 1) / weight, each similarity x weight.
 
         With every weight at 1.0 the order and the similarities stay as the
         store returned them.
         """
-        if self._weights is None:
+        if weights is None:
             return hits
-        weights = self._weights.for_question(question)
         scored = []
         for position, hit in enumerate(hits):
             weight = weights.weight(hit.chunk.id)
@@ -257,10 +259,14 @@ class DomainAgent:
             for _, _, hit, similarity in scored
         ]
 
-    def _keep(self, hits: list[Hit]) -> list[Hit]:
+    def _keep(self, hits: list[Hit], weights: QuestionWeights | None) -> list[Hit]:
+        """The first min_chunks, unless feedback rated one not useful for a
+        similar question (weight below 1): that one, and every later hit,
+        stays only with a similarity of at least min_similarity."""
         kept = []
         for position, hit in enumerate(hits):
-            if position < self._params.min_chunks:
+            rated_down = weights is not None and weights.weight(hit.chunk.id) < 1.0
+            if position < self._params.min_chunks and not rated_down:
                 kept.append(hit)
             elif hit.similarity >= self._params.min_similarity:
                 kept.append(hit)

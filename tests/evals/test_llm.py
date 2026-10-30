@@ -115,10 +115,11 @@ def facts_stated(answers, questions) -> tuple[int, int, list[str]]:
     return stated, expected, missed
 
 
-# Measured 2026-10-30 with claude-sonnet-5-5: 20 of 24 facts (missed Q01,
-# Q02, Q03: long answers that leave out one detail; Q10), held-out 7 of 9
-# (missed Q21, Q25: the chunk with the fact is not kept, as offline). A model
-# does not answer the same way every time, so the floors sit a little lower.
+# Measured 2026-10-30 with claude-sonnet-5-5: tuning 20 of 24 facts (missed
+# Q01, Q02, Q03: long answers that leave out one detail; Q10); held-out batch
+# 1 7 of 9, batch 2 21 of 28 (most misses: the chunk with the fact is not
+# kept, as offline). A model does not answer the same way every time, so the
+# floors sit a little lower.
 def test_the_answers_state_at_least_18_of_the_24_expected_facts(answers):
     stated, expected, missed = facts_stated(answers, QUESTIONS)
 
@@ -126,11 +127,11 @@ def test_the_answers_state_at_least_18_of_the_24_expected_facts(answers):
     assert stated >= 18, f"{stated} of {expected}; missed {missed}"
 
 
-def test_the_answers_to_new_questions_state_at_least_6_of_the_9_facts(answers):
+def test_the_answers_to_new_questions_state_at_least_25_of_the_37_facts(answers):
     stated, expected, missed = facts_stated(answers, HELDOUT)
 
-    assert expected == 9
-    assert stated >= 6, f"{stated} of {expected}; missed {missed}"
+    assert expected == 37
+    assert stated >= 25, f"{stated} of {expected}; missed {missed}"
 
 
 @pytest.mark.parametrize("question_id", ["Q13", "Q17"])
@@ -144,16 +145,26 @@ def test_a_question_about_the_past_is_answered_from_the_old_version(
     assert set(BY_ID[question_id]["expected_documents"]) <= cited
 
 
-@pytest.mark.xfail(
-    reason="known gap: on 2026-10-30 all three agents answered from nearby "
-    "chunks (connectors, approvals); the answer itself said the sources do "
-    "not confirm it is possible and name no Payroll connector"
-)
-def test_no_agent_answers_a_question_that_no_document_answers(answers):
-    """Q24 (staff bonuses, Payroll); offline both agents answer (test_heldout)."""
-    answer = answers["Q24"][0]
+def test_most_questions_that_no_document_answers_end_in_nothing_relevant(answers):
+    """Seven questions (payroll, meeting rooms, travel expenses, ...).
 
-    assert all(a.status == Status.NOTHING_RELEVANT for a in answer.agent_answers)
+    Measured 2026-10-30: 6 of 7 (Q32, Q33, Q45, Q46, Q53, Q54); for Q24
+    (staff bonuses to Payroll) the agents answered from nearby chunks
+    (connectors, approvals), and the answer said the sources do not confirm
+    it is possible. Offline none of the 7 ends so (test_heldout.py).
+    """
+    unanswerable = [q["id"] for q in ALL_QUESTIONS if not q["expected_documents"]]
+    silent = [
+        question_id
+        for question_id in unanswerable
+        if all(
+            a.status == Status.NOTHING_RELEVANT
+            for a in answers[question_id][0].agent_answers
+        )
+    ]
+
+    assert len(unanswerable) == 7
+    assert len(silent) >= 5, f"answered: {set(unanswerable) - set(silent)}"
 
 
 def decided_as_expected(answer: FinalAnswer, conflict: dict) -> bool:

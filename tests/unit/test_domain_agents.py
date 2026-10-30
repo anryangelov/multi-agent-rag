@@ -6,7 +6,7 @@ from datetime import date
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 
-from rag_system.domain_agents import DomainAgent
+from rag_system.domain_agents import DomainAgent, RetrievalParams
 from rag_system.ingestion import Document, chunk_document
 from rag_system.messages import (
     AgentTask,
@@ -89,7 +89,10 @@ async def test_the_agent_keeps_at_least_3_chunks_and_drops_the_rest_below_0_4():
         ]
     ]
     agent = DomainAgent(
-        Domain.TECHNICAL, store_with(*related, *unrelated), offline_model()
+        Domain.TECHNICAL,
+        store_with(*related, *unrelated),
+        offline_model(),
+        params=RetrievalParams(min_chunks=3),
     )
 
     answer = await agent.answer(task("How do I rollback a failed deployment?"))
