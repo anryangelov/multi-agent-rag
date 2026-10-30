@@ -18,38 +18,14 @@ from pathlib import Path
 from rag_system.domain_agents import DomainAgent
 from rag_system.messages import AgentTask, Classification, Domain, SubQuery
 from rag_system.offline_model import offline_model
-from rag_system.vector_store import InMemoryVectorStore
 from tests.evals.gold_set import QUESTIONS
+from tests.evals.measures import agent_counts, found_documents, store_counts
 
 ROOT = Path(__file__).parents[2]
-LIMIT = 5
-
-
-def found_documents(store: InMemoryVectorStore, question: dict) -> set[str]:
-    """The documents of the hits in every expected domain of the question."""
-    found = set()
-    for domain in question["expected_domains"]:
-        hits = store.search(
-            question["question"],
-            Domain(domain),
-            Classification(question.get("clearance", "internal")),
-            limit=LIMIT,
-            include_superseded=question.get("include_superseded", False),
-        )
-        found |= {hit.chunk.document.id for hit in hits}
-    return found
 
 
 def test_retrieval_finds_at_least_29_of_the_32_expected_documents(corpus_store):
-    found, expected, missed = 0, 0, []
-    for question in QUESTIONS:
-        documents = found_documents(corpus_store, question)
-        for doc_id in question["expected_documents"]:
-            expected += 1
-            if doc_id in documents:
-                found += 1
-            else:
-                missed.append(f"{question['id']}: {doc_id}")
+    found, expected, missed = store_counts(corpus_store, QUESTIONS)
 
     assert expected == 32
     assert found >= 29, f"found {found} of {expected}; missed {missed}"
@@ -66,7 +42,7 @@ def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(corpus_sto
     question = next(q for q in QUESTIONS if q["id"] == "Q12")
 
     hits = corpus_store.search(
-        question["question"], Domain.TECHNICAL, Classification.INTERNAL, limit=LIMIT
+        question["question"], Domain.TECHNICAL, Classification.INTERNAL, limit=5
     )
 
     # The words are on two lines in the document, so search for a part.
@@ -81,26 +57,7 @@ async def test_the_domain_agents_cite_at_least_29_of_the_32_expected_documents(
     Measured 2026-10-30: 29 of 32. Missed: CMP-1 for Q03, and TEC-2 for Q13 and
     BUS-1 for Q17, because offline nothing asks for superseded versions.
     """
-    agents = {
-        domain: DomainAgent(domain, corpus_store, offline_model()) for domain in Domain
-    }
-    found, missed = 0, []
-    for question in QUESTIONS:
-        cited = set()
-        for domain in question["expected_domains"]:
-            task = AgentTask(
-                question=question["question"],
-                sub_query=SubQuery(domain=domain, text=question["question"]),
-                clearance=question.get("clearance", "internal"),
-            )
-            answer = await agents[Domain(domain)].answer(task)
-            for claim in answer.claims:
-                cited |= {citation.doc_id for citation in claim.citations}
-        for doc_id in question["expected_documents"]:
-            if doc_id in cited:
-                found += 1
-            else:
-                missed.append(f"{question['id']}: {doc_id}")
+    found, missed = await agent_counts(corpus_store, QUESTIONS)
 
     assert found >= 29, f"found {found} of 32; missed {missed}"
 

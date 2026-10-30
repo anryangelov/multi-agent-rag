@@ -16,6 +16,7 @@ from rag_system.offline_model import offline_model
 from rag_system.query_classifier import QueryClassifier
 from rag_system.vector_store import Ranking
 from tests.evals.gold_set import QUESTIONS
+from tests.evals.measures import classifier_counts
 
 ROOT = Path(__file__).parents[2]
 
@@ -23,17 +24,7 @@ ROOT = Path(__file__).parents[2]
 async def test_the_classifier_finds_every_expected_domain_with_at_most_13_extra(
     corpus_store,
 ):
-    classifier = QueryClassifier(corpus_store, offline_model())
-    found, extra, missed = 0, 0, []
-    for question in QUESTIONS:
-        plan = await classifier.classify(
-            question["question"], Classification(question.get("clearance", "internal"))
-        )
-        asked = {sub_query.domain for sub_query in plan.sub_queries}
-        expected = {Domain(domain) for domain in question["expected_domains"]}
-        found += len(asked & expected)
-        extra += len(asked - expected)
-        missed += [f"{question['id']}: {domain}" for domain in expected - asked]
+    found, extra, _, missed = await classifier_counts(corpus_store, QUESTIONS)
 
     assert found == 26, f"missed {missed}"
     assert extra <= 13
