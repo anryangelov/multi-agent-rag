@@ -47,11 +47,11 @@ from rag_system.ingestion import Chunk
 from rag_system.messages import Clearance, Domain
 
 # Reciprocal rank fusion gives each chunk 1 / (RRF_K + rank) from each
-# ranking and adds them up. A chunk ranked first by words and tenth by
-# meaning gets 1/60 + 1/70 = 0.0310; a chunk ranked fifth by both gets
-# 1/65 + 1/65 = 0.0308. 60 is the constant of the paper that introduced
-# the method (Cormack, Clarke and Buettcher, 2009); it keeps the first few
-# ranks from dominating.
+# ranking and adds them up; ranks count from 0. A chunk ranked first by
+# words and tenth by meaning gets 1/60 + 1/69 = 0.0312; a chunk ranked fifth
+# by both gets 1/64 + 1/64 = 0.0313. 60 is the constant of the paper that
+# introduced the method (Cormack, Clarke and Buettcher, 2009); it keeps the
+# first few ranks from dominating.
 RRF_K = 60
 
 

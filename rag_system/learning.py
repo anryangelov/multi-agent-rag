@@ -10,8 +10,9 @@
         chunk's weight by 1.25 (useful) or 0.8 (not useful); a weight
         stays between 0.5 and 2
     the DomainAgent's search
-        orders its hits by (position + 1) / weight, and keeps a chunk past
-        the first three when similarity x weight >= 0.4
+        orders its hits by (position + 1) / weight; keeps the first eight,
+        except a chunk with a weight below 1, and any other chunk while
+        similarity x weight >= 0.4
 
 A chunk can be useful for one question and beside the point for another
 (TEC-6#5, "log retention follows CMP-3", answers a question about logs,
