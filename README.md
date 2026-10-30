@@ -14,7 +14,8 @@ platform these documents describe:
 ```bash
 uv sync                                   # or: pip install -r requirements.txt
 uv run jupyter lab notebooks/demo.ipynb   # the demo, runs without any key
-uv run pytest -m "not eval"               # 445 offline tests, about 8 s
+uv run python -m rag_system "How long can we keep API debug logs?"
+uv run pytest -m "not eval"               # 451 offline tests, about 9 s
 ```
 
 ## What it does
@@ -24,19 +25,23 @@ API?"** The troubleshooting runbook says 30 days. The data retention policy
 says 90. This is the answer Claude wrote (from
 [the notebook](notebooks/demo.ipynb), shortened):
 
-> Troubleshooting logs of an API, including debug logs, can be kept for 90
-> days and are then deleted [CMP-3]. ...
+> **Answer: keep API troubleshooting logs (debug logs) for 90 days, then delete them.**
 >
-> **Settled conflict:** One claim said debug logs turned on for
-> troubleshooting an API are kept for 30 days and then deleted [TEC-4]. It
-> is overruled. The policy (CMP-3) takes precedence over the runbook
-> (TEC-4), so the 90-day period applies [CMP-3].
+> **Retention**
+> - API request logs, including debug logs, are kept for 90 days and then deleted [CMP-3].
+> - The Observability Standard says log retention follows the Data Retention Policy (CMP-3) [TEC-6]. ...
 >
-> **Conditions for handling the logs:**
-> - Debug logging for the API should be turned on for at most 24 hours [TEC-4]. ...
-> - Personal data must be masked before it is written to any log, including at debug level [CMP-5].
+> **Conflict settled**
+> - A claim from the runbook said debug logs are kept for 30 days and then deleted [TEC-4]. It is overruled. The Data Retention Policy (CMP-3) overrules the runbook (TEC-4), so the 90-day period applies.
 >
-> Sources: [CMP-3] Data Retention Policy, v1, 2025-06-01, "Retention periods"; [TEC-4] API Performance Troubleshooting Runbook, v1, 2026-05-20, "Step 4: debug logging"; ...
+> **Related rules for debug logs**
+> - Debug logging for an API may be turned on for at most 24 hours [TEC-4]. This limits how long debug logging is active. It does not limit how long the resulting logs are kept.
+> - Personal data is masked before it is written to any log, trace or error message [CMP-5]. ...
+>
+> **Sources**
+> - [CMP-3] Data Retention Policy, v1, 2025-06-01, "Retention periods"
+> - [TEC-4] API Performance Troubleshooting Runbook, v1, 2026-05-20, "Step 4: debug logging"
+> - ...
 
 The answer does not pick the newer document (the runbook is newer). It
 picks the stronger one, says so, and shows what it overruled.
@@ -167,6 +172,10 @@ answers from the retrieved chunks by template and finds no conflicts; the
 notebook says which mode it ran in. The committed notebook carries the
 output of a run with `claude-sonnet-5-5`.
 
+The command line prints which models run, then the answer with its sources
+as Markdown. `--clearance confidential` lets the search include the two
+confidential documents (the default clearance is `internal`).
+
 `uv run pytest -m eval` runs the LLM evals (about 6 minutes, needs a key).
 
 </details>
@@ -181,6 +190,7 @@ follow one real eval question; a test checks they stay true.
 | File | Question it answers |
 |---|---|
 | `orchestrator.py` | What happens when a question arrives? (START HERE) |
+| `app.py`, `__main__.py` | How is the system built from settings, and asked from the command line? |
 | `query_classifier.py` | Which departments should answer, with which sub-question? |
 | `domain_agents.py` | How does one agent answer from its own documents? |
 | `conflicts.py` | Which claims contradict each other, and who wins? |

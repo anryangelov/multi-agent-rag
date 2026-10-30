@@ -138,6 +138,28 @@ setting. Tests pass the offline model and never patch.
   fails at import, and tests must patch every module.
 - One provider only: a reviewer without that provider can run nothing.
 
+### One place builds the system
+
+Decided on 2026-10-30, after reading the notebook: its first cell built the
+settings, both models, the documents, the index and the orchestrator by
+hand, and the system could not be run without Jupyter.
+
+**Decision.** `rag_system/app.py` has `Assistant`: it reads `.env`, builds
+the models, indexes `data/` and builds the orchestrator; `ask()` answers.
+The notebook and the command line (`python -m rag_system "question"`) both
+start from it. It is the only place that builds models from settings;
+everything below still receives them as parameters.
+
+**Why.** The notebook opens with one line instead of six steps, a reviewer
+can ask a question of their own without Jupyter, and the two entry points
+cannot drift apart.
+
+**Rejected.**
+- A `main.py` in the repository root: one more file outside the package
+  for the same function.
+- No change: the notebook stays low-level and there is no way to ask a
+  question without it.
+
 ### Azure OpenAI as the production target
 
 **Decision.** Production uses Azure OpenAI for both the language model and
