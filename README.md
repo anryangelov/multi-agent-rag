@@ -72,8 +72,12 @@ Four principles:
    A model is used only where text must be understood.
 2. **Every sentence has a source.** The answer may cite only documents the
    agents read; otherwise the model is asked again.
-3. **Conflicts are settled by rules, not by the model.** A policy outranks a
-   standard, a standard a guide, a guide a runbook.
+3. **The winner of a conflict is decided by code, not chosen by a model.**
+   Models do the reading: one finds the claims that contradict each other;
+   for two documents of the same kind, a judge marks which other documents
+   support each side. Code then applies fixed rules: a policy outranks a
+   standard, a standard a guide, a guide a runbook; within one kind, the
+   side with more supporting documents wins; a tie has no winner.
 4. **"Nothing relevant" is an answer.** The system does not fill a gap with
    what the documents do not say.
 
