@@ -431,6 +431,22 @@ about 1,080 words to the model, the same as a fixed k of 8 with about
 gold set checks it. No measurement shows a reason for different values per
 domain.
 
+**Revised on 2026-10-30.** Each agent now keeps the first 8 chunks in
+hybrid order, plus up to 2 more with a similarity of at least 0.4. A chunk
+that feedback rated not useful for a similar question (weight below 1)
+loses its place among the first 8 and must pass the 0.4 bar like the rest.
+Why: the entry above measured found documents, not answer facts. Checking
+facts showed the chunk with the fact ranked 4th (Q08, similarity 0.32) and
+8th (Q10, 0.30), so the old rule dropped it. With 8, the facts that reach
+the model rose from 20 to 22 of 24, conflicts found by the model from 14 to
+15 of 15 runs, at about 40% more text (1,057 to 1,473 words per question).
+Keeping 8 alone weakened learning (off-target sources 210 to 126 instead of
+145 to 33), because ratings could only reorder the always-kept chunks; the
+rated-down rule restores it (210 to 11). Rejected: the first 5 (Q10 still
+missed), no change. Anthropic's Contextual Retrieval found 20 chunks better
+than 10 or 5. On held-out questions the change did not help (6 of 9 facts
+before and after): there the chunk with the fact ranks 18th to 31st.
+
 ### "Nothing relevant"
 
 **Decision.** Offline, an agent answers `nothing_relevant` when even its
@@ -688,7 +704,10 @@ embedding, and ignores feedback from queries below a similarity threshold.
   agent on 8 questions, and the learned value applies to every question.
 
 The 0.6 threshold was tuned on these 16 questions (0.7 gives about the
-same); the Phase 4 gold set checks it.
+same); the Phase 4 gold set checks it. After the revised keep rule
+(Dynamic retrieval, 2026-10-30) the numbers over the 19 tuning questions
+are: off-target sources 210 to 11 on the same questions, 284 to 182 on
+their paraphrases, 64 to 64 on questions that received no feedback.
 
 ### A new version takes effect when it is added
 
@@ -770,6 +789,95 @@ a model that hangs without an error would otherwise hold the answer.
 - Our own retries with backoff: the SDKs already retry, and a real outage
   still ends in an error.
 
+
+## Evaluation
+
+### Held-out questions
+
+**Decision.** The gold set marks questions written after every threshold
+was tuned with `heldout: true`. The tuning evals skip them;
+`tests/evals/test_heldout.py` reports them on their own, and each batch
+runs once with the thresholds frozen and keeps whatever numbers come out.
+Other models wrote them from the document titles alone, without the text,
+the chunks or the thresholds: Q20-Q25, then Q26-Q54. Three coverage
+questions (Q17-Q19, for BUS-1, BUS-5 and TEC-8, which no question
+expected) joined the tuning set.
+
+**Why.** The thresholds (0.4, 0.6, the classifier's top 8) were chosen on
+the same questions they were measured on, so those numbers say how well
+they fit, not how well they work. The held-out batches showed it: retrieval
+finds 91% of the expected documents in the top 5 on tuning questions and
+68% on held-out ones, and a fix that raised tuning facts from 20 to 22 of
+24 left held-out facts at 6 of 9.
+
+**Rejected.**
+- All new questions written by the agent: it knows which chunks rank well.
+- Coverage questions only: no check of the tuned thresholds.
+- A separate file for held-out questions: two files with one schema.
+- No flag: tuned and untuned numbers mixed.
+
+### Stricter measures: rank and answer facts
+
+**Decision.** Two measures join "is the document in the top 5". Mean
+reciprocal rank: where each expected document stands among the documents
+of its domain (first is 1, third is 1/3). Expected facts: each question
+lists short phrases from its documents that a right answer states, e.g.
+`12 months` for Q18. Offline, a fact counts when it is in the chunks the
+agents kept (did it reach the model?); with a model, a judge model reads
+the answer and says which facts it states, in any wording.
+
+**Why.** Top 5 of 8 documents is close to what random order gives; random
+order has a mean reciprocal rank of 0.34, ours is 0.75 on tuning and 0.59
+on held-out questions. Found documents also overstate: for Q21 and Q22 the
+document is cited, but not the chunk with the fact. The offline answer is a
+template that takes one sentence per chunk, so checking facts in it would
+measure the template.
+
+**Rejected.**
+- Looking for the fact's words in the answer in both modes: offline gives
+  almost nothing, and a model's "twelve months" would fail.
+- Facts in the chunks only: nobody checks the final answer.
+
+### LLM evals
+
+**Decision.** `tests/evals/test_llm.py` runs the whole gold set once with
+the model from `.env` (`@pytest.mark.eval`, skipped without a key) and
+checks what only a model can do: facts in the chunks it read with its own
+sub-questions, facts stated in the answer, faithfulness (a second judge
+splits the answer into statements and checks each against the chunks read
+and the conflict decisions), history questions, questions no document
+answers, and the conflicts. A model does not answer the same way twice, so
+each test counts over many questions with a floor a little below the
+measured value, instead of one test per question.
+
+**Why.** Measured with claude-sonnet-5-5: faithfulness 97% (691 of 710
+statements), 6 of 7 out-of-scope questions end in "nothing relevant", the
+detector decided 3 to 5 of the 5 conflicts per run (Q08 and Q15 each missed
+once in four runs). One test per conflict failed on runs where the overall
+result was the same. When the faithfulness judge saw only the chunks, about
+20 of 49 unsupported statements were repetitions of the conflict rules'
+decisions, which the synthesis is given; the judge now sees them too.
+
+**Rejected.**
+- Exact numbers as for the offline evals: the model varies between runs.
+- A judge from another model family: no second key; the README names the
+  same-model judge as a limit.
+
+### Closed sets of values are StrEnums
+
+**Decision.** Domains, classifications, kinds, statuses and the other
+closed sets are `StrEnum`s, with the behaviour that belongs to them inside
+the enum (`Classification.allows`, `Domain.prefix`, `Kind.rank`,
+`Kind.plural`).
+
+**Why.** A typo in our own code fails at once, without a type checker, and
+the JSON stays the same strings. Ordering and prefixes live with the
+values instead of in dictionaries spread over the modules.
+
+**Rejected.**
+- `Literal`: ordering and prefixes become scattered dictionaries, and a
+  typo passes without a type checker.
+- Mixing both: two styles in one file.
 
 ## Task B: the self-service platform
 
