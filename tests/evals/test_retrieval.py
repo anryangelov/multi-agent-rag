@@ -144,4 +144,5 @@ async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store
     assert len(answer.claims) == 8
     assert "TEC-3#4" in {c.citations[0].chunk_id for c in answer.claims}
     assert round(answer.best_similarity, 2) == 0.42
-    assert answer.chunks_read == 8
+    assert answer.chunks_read[:3] == ["TEC-1#4", "TEC-3#5", "TEC-3#6"]
+    assert len(answer.chunks_read) == 8

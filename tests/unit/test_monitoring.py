@@ -39,7 +39,7 @@ def answered(domain: Domain, chunk_id: str) -> AgentAnswer:
         status=Status.ANSWERED,
         claims=[claim],
         best_similarity=0.5,
-        chunks_read=3,
+        chunks_read=["TEC-1#1", "TEC-1#2", "TEC-1#3"],
     )
 
 

@@ -162,7 +162,8 @@ class AgentAnswer(_Message):
     # how close the text came, not how sure the answer is. None when the
     # agent failed or found no chunk.
     best_similarity: float | None = Field(default=None, ge=-1, le=1)
-    chunks_read: int = 0  # how many chunks the agent gave its model
+    # The ids of the chunks the agent gave its model: what the model saw.
+    chunks_read: list[str] = []
     error: str | None = None
 
     @model_validator(mode="after")

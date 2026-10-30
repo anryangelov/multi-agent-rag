@@ -90,7 +90,7 @@ class Monitor:
                     domain=agent_answer.domain,
                     status=agent_answer.status,
                     seconds=agent_seconds[agent_answer.domain],
-                    chunks_read=agent_answer.chunks_read,
+                    chunks_read=len(agent_answer.chunks_read),
                     best_similarity=agent_answer.best_similarity,
                     error=agent_answer.error,
                 )
