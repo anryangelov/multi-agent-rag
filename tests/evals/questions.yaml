@@ -14,8 +14,11 @@
 # `conflict` holds the two contradicting claims an agent would write and
 # the document whose claim should win (null: no winner).
 #
-# Questions 1-12 drive the spikes; the full set grows from them.
-# Expected answer facts are added later.
+# `expected_facts` are short phrases from the expected documents that a
+# right answer states. Offline they are looked for in the chunks the agents
+# kept (was the fact retrieved?); with a model, a judge checks the answer.
+#
+# Questions 1-12 drove the spikes; the full set grew from them.
 
 - id: Q01
   purpose: test scenario 1 from the assignment
@@ -27,6 +30,7 @@
     must it pass first?
   expected_domains: [technical, compliance]
   expected_documents: [TEC-1, TEC-3, CMP-4]
+  expected_facts: [two approvers, Pre-Production Compliance Checklist]
 
 - id: Q02
   purpose: test scenario 2 from the assignment
@@ -38,6 +42,7 @@
     rules?
   expected_domains: [technical, compliance]
   expected_documents: [TEC-4, TEC-6, CMP-5]
+  expected_facts: [sort the spans of slow requests by duration, masked before it is written]
 
 - id: Q03
   purpose: test scenario 3 from the assignment
@@ -49,6 +54,7 @@
     can start?
   expected_domains: [business, compliance]
   expected_documents: [BUS-2, CMP-1, CMP-2, CMP-6]
+  expected_facts: [Process Board, pseudonymised]
 
 - id: Q04
   purpose: versions (conflict 1), paraphrased; only the version in force
@@ -56,6 +62,7 @@
   paraphrase: How many approvers does a production release need today?
   expected_domains: [technical]
   expected_documents: [TEC-3]
+  expected_facts: [two approvers]
   forbidden_documents: [TEC-2]
 
 - id: Q05
@@ -65,6 +72,7 @@
     Which approvals does an automation that handles customer data need?
   expected_domains: [business]
   expected_documents: [BUS-2]
+  expected_facts: [Process Board]
   forbidden_documents: [BUS-1]
 
 - id: Q06
@@ -73,6 +81,7 @@
   paraphrase: For how many days are the debug logs of an API retained?
   expected_domains: [technical, compliance]
   expected_documents: [CMP-3, TEC-4]
+  expected_facts: [90 days]
   conflict:
     claims:
       - document: TEC-4
@@ -87,6 +96,7 @@
   paraphrase: May a connector from the experimental tier be used in production?
   expected_domains: [business]
   expected_documents: [BUS-3, BUS-4]
+  expected_facts: [never run in production]
   conflict:
     claims:
       - document: BUS-4
@@ -103,6 +113,7 @@
   paraphrase: Can we use a connector that was built by a different team?
   expected_domains: [technical, business]
   expected_documents: [BUS-3, TEC-5]
+  expected_facts: [must first become certified]
   conflict:
     claims:
       - document: TEC-5
@@ -124,6 +135,7 @@
     it stopped?
   expected_domains: [business, compliance]
   expected_documents: [CMP-8, BUS-8]
+  expected_facts: [Nothing was pseudonymised]
 
 - id: Q10
   purpose: paraphrase only, no keyword from the document title
@@ -132,6 +144,7 @@
     Who do I alert when the automation platform has an outage at night?
   expected_domains: [technical]
   expected_documents: [TEC-7]
+  expected_facts: [on-call engineer of Platform Engineering]
 
 - id: Q11
   purpose: a fact buried in a long unstructured document (meeting minutes)
@@ -140,6 +153,7 @@
     Did the process board approve a second robot for the screening system?
   expected_domains: [business]
   expected_documents: [BUS-9]
+  expected_facts: [approved the funding of a second RPA robot]
 
 - id: Q12
   purpose: a fact buried in a long unstructured document (incident review)
@@ -148,6 +162,7 @@
     What caused the backlog in sanctions alert screening in late August?
   expected_domains: [technical]
   expected_documents: [TEC-9]
+  expected_facts: [alert reference field, 30-second timeout]
 
 - id: Q13
   purpose: history; the superseded version answers it
@@ -156,6 +171,7 @@
   paraphrase: In 2025, how many sign-offs did a release to production require?
   expected_domains: [technical]
   expected_documents: [TEC-2]
+  expected_facts: [one approver]
 
 - id: Q14
   purpose: what changed between versions, answered by the version in force
@@ -163,6 +179,7 @@
   paraphrase: How have the approval rules for new automated processes changed?
   expected_domains: [business]
   expected_documents: [BUS-2]
+  expected_facts: [no longer the only approver]
   forbidden_documents: [BUS-1]
 
 - id: Q15
@@ -178,6 +195,7 @@
     approval?
   expected_domains: [business]
   expected_documents: [BUS-4, BUS-7]
+  expected_facts: [needs no approval]
   conflict:
     claims:
       - document: BUS-4
@@ -198,6 +216,7 @@
     workflows?
   expected_domains: [business, compliance]
   expected_documents: [BUS-6, CMP-7]
+  expected_facts: [workflows they assembled, Internal Audit]
   conflict:
     claims:
       - document: BUS-6
@@ -218,6 +237,7 @@
   paraphrase: In 2025, whose approval did a new automated process need?
   expected_domains: [business]
   expected_documents: [BUS-1]
+  expected_facts: [head of the department]
 
 - id: Q18
   purpose: coverage of BUS-5, the business case rules
@@ -229,6 +249,7 @@
     reason?
   expected_domains: [business]
   expected_documents: [BUS-5]
+  expected_facts: [12 months]
 
 - id: Q19
   purpose: coverage of TEC-8, the architecture overview (public)
@@ -236,6 +257,7 @@
   paraphrase: Which parts of the platform are hosted outside our data centres?
   expected_domains: [technical]
   expected_documents: [TEC-8]
+  expected_facts: [only the language models]
 
 # Held-out questions (`heldout: true`): written after every threshold was
 # tuned, by a separate model that saw only the document titles, and run
@@ -252,6 +274,7 @@
     Can a workflow work with a vendor system that has a web page but no API?
   expected_domains: [technical]
   expected_documents: [TEC-5]
+  expected_facts: [RPA connector]
 
 - id: Q21
   purpose: held-out; what the analyst finds out before automating
@@ -264,6 +287,7 @@
     what do I need to learn from the department?
   expected_domains: [business]
   expected_documents: [BUS-4]
+  expected_facts: [at least three real cases, "stable, frequent and rule-based"]
 
 - id: Q22
   purpose: held-out; two compliance documents, secrets and run records
@@ -276,6 +300,7 @@
     recorded every time the workflow runs?
   expected_domains: [compliance]
   expected_documents: [CMP-5, CMP-7]
+  expected_facts: [Secrets live only in the vault, exact version]
 
 - id: Q23
   purpose: held-out; a change to a live workflow, two domains
@@ -289,6 +314,7 @@
     campaign. Who approves it and what are the steps to release it?
   expected_domains: [business, technical]
   expected_documents: [BUS-7, TEC-3]
+  expected_facts: [such as a threshold, Tuesday to Thursday]
 
 - id: Q24
   purpose: held-out; no document answers it, the system should say so
@@ -301,6 +327,7 @@
     pass them straight to Payroll?
   expected_domains: []
   expected_documents: []
+  expected_facts: []
 
 - id: Q25
   purpose: >-
@@ -317,3 +344,4 @@
     period?
   expected_domains: [business, compliance]
   expected_documents: [BUS-2, CMP-1, CMP-3]
+  expected_facts: [Process Board, always confidential]

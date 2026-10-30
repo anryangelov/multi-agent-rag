@@ -14,6 +14,7 @@ import yaml
 
 from rag_system.messages import Classification, Domain, Kind
 from tests.evals.gold_set import ALL_QUESTIONS as QUESTIONS
+from tests.evals.measures import mentions
 
 ROOT = Path(__file__).parents[2]
 REQUIRED = {
@@ -127,3 +128,10 @@ def test_a_superseded_document_is_expected_only_in_a_question_about_history(ques
             assert history, f"{doc_id} is superseded; mark the question as history"
     for doc_id in question.get("forbidden_documents", []):
         assert doc_id in DOCS
+
+
+@pytest.mark.parametrize("question", QUESTIONS, ids=lambda q: q["id"])
+def test_every_expected_fact_is_stated_in_an_expected_document(question):
+    texts = [DOCS[doc_id][1] for doc_id in question["expected_documents"]]
+    for fact in question["expected_facts"]:
+        assert any(mentions(text, fact) for text in texts), fact

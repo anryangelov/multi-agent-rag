@@ -5,13 +5,23 @@ questions --> classifier_counts  the domains of each plan
           --> agent_counts       the documents the domain agents cite
 """
 
+from pathlib import Path
+
 from rag_system.domain_agents import DomainAgent
+from rag_system.ingestion import chunk_document, load_documents
 from rag_system.messages import AgentTask, Classification, Domain, SubQuery
 from rag_system.offline_model import offline_model
+from rag_system.orchestrator import Orchestrator
 from rag_system.query_classifier import QueryClassifier
 from rag_system.vector_store import InMemoryVectorStore
 
 LIMIT = 5
+CHUNK_TEXTS = {
+    chunk.id: chunk.text
+    for document in load_documents(Path(__file__).parents[2] / "data")
+    for chunk in chunk_document(document)
+}
+EVERY_CHUNK = 1000  # more than the corpus holds (about 170 chunks)
 
 
 def clearance_of(question: dict) -> Classification:
@@ -84,3 +94,61 @@ async def agent_counts(store: InMemoryVectorStore, questions: list[dict]):
             else:
                 missed.append(f"{question['id']}: {doc_id}")
     return found, missed
+
+
+def document_ranks(store: InMemoryVectorStore, questions: list[dict]) -> list[int]:
+    """The rank of each expected document among the documents of its domain.
+
+    The store orders every chunk of the domain (hybrid search); a document
+    takes the place of its best chunk. Rank 1 is the first document.
+    """
+    ranks = []
+    for question in questions:
+        for doc_id in question["expected_documents"]:
+            prefix = doc_id.split("-")[0]
+            domain = next(domain for domain in Domain if domain.prefix == prefix)
+            hits = store.search(
+                question["question"],
+                domain,
+                clearance_of(question),
+                limit=EVERY_CHUNK,
+                include_superseded=question.get("include_superseded", False),
+            )
+            order = list(dict.fromkeys(hit.chunk.document.id for hit in hits))
+            ranks.append(order.index(doc_id) + 1)
+    return ranks
+
+
+def mentions(text: str, fact: str) -> bool:
+    """Whether `text` states `fact` word for word, ignoring case, Markdown
+    bold and line breaks: "**two approvers**" mentions "two approvers"."""
+
+    def plain(words: str) -> str:
+        return " ".join(words.replace("*", "").lower().split())
+
+    return plain(fact) in plain(text)
+
+
+async def fact_counts(store: InMemoryVectorStore, questions: list[dict]):
+    """(expected facts in the chunks the agents kept, expected facts, missed).
+
+    The whole pipeline runs with the offline model, which turns every kept
+    chunk into a claim, so the chunks cited are the chunks kept.
+    """
+    orchestrator = Orchestrator(store, offline_model())
+    found, expected, missed = 0, 0, []
+    for question in questions:
+        answer = await orchestrator.answer(question["question"], clearance_of(question))
+        kept = [
+            CHUNK_TEXTS[citation.chunk_id]
+            for agent_answer in answer.agent_answers
+            for claim in agent_answer.claims
+            for citation in claim.citations
+        ]
+        for fact in question["expected_facts"]:
+            expected += 1
+            if any(mentions(text, fact) for text in kept):
+                found += 1
+            else:
+                missed.append(f"{question['id']}: {fact}")
+    return found, expected, missed

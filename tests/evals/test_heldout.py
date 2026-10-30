@@ -13,6 +13,8 @@ classifier). The numbers below are what that run gave, good or bad:
     classifier extra      13                       7
     store, top 5          29 of 32                 8 of 9 (missed Q25 CMP-1)
     agents cite           29 of 32                 9 of 9
+    mean reciprocal rank  0.75                     0.64 (random: 0.34)
+    facts in kept chunks  20 of 24                 6 of 9
 
 A change that lowers them fails here; do not tune a threshold to these
 questions, or they stop being held out.
@@ -24,7 +26,13 @@ from rag_system.messages import Classification, Status
 from rag_system.offline_model import offline_model
 from rag_system.orchestrator import Orchestrator
 from tests.evals.gold_set import HELDOUT
-from tests.evals.measures import agent_counts, classifier_counts, store_counts
+from tests.evals.measures import (
+    agent_counts,
+    classifier_counts,
+    document_ranks,
+    fact_counts,
+    store_counts,
+)
 
 
 async def test_the_classifier_finds_every_expected_domain_of_new_questions(
@@ -45,12 +53,32 @@ def test_retrieval_finds_at_least_8_of_the_9_expected_documents_of_new_questions
     assert found >= 8, f"found {found} of {expected}; missed {missed}"
 
 
+def test_the_expected_documents_of_new_questions_rank_high_in_their_domain(
+    corpus_store,
+):
+    """Mean reciprocal rank 0.64: first for 4 of 9, top 3 for 7 of 9."""
+    ranks = document_ranks(corpus_store, HELDOUT)
+
+    assert sum(1 / rank for rank in ranks) / len(ranks) >= 0.63
+
+
 async def test_the_domain_agents_cite_all_9_expected_documents_of_new_questions(
     corpus_store,
 ):
     found, missed = await agent_counts(corpus_store, HELDOUT)
 
     assert found == 9, f"found {found} of 9; missed {missed}"
+
+
+async def test_the_kept_chunks_hold_at_least_6_of_the_9_facts_of_new_questions(
+    corpus_store,
+):
+    """Missed: Q21 and Q22 (the document is cited, but not the chunk with the
+    fact), Q25 (CMP-1 ranks 6th in compliance)."""
+    found, expected, missed = await fact_counts(corpus_store, HELDOUT)
+
+    assert expected == 9
+    assert found >= 6, f"found {found} of {expected}; missed {missed}"
 
 
 @pytest.mark.xfail(

@@ -49,6 +49,11 @@ class Kind(StrEnum):
     REPORT = "report"
 
     @property
+    def plural(self) -> str:
+        """For the reason of a conflict: "both policies", "both guides"."""
+        return "policies" if self is Kind.POLICY else f"{self}s"
+
+    @property
     def rank(self) -> int:
         """Authority in a conflict between documents of different kinds.
 

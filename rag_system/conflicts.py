@@ -211,8 +211,8 @@ def _by_count(
     if len(for_a) == len(for_b):
         decision = Decision.NO_WINNER
         reason = (
-            f"{source_a.doc_id} and {source_b.doc_id} are both {source_a.kind}s and "
-            f"{_supports(len(for_a))} each; ask the owners: "
+            f"{source_a.doc_id} and {source_b.doc_id} are both "
+            f"{source_a.kind.plural} and {_supports(len(for_a))} each; ask the owners: "
             f"{source_a.owner}; {source_b.owner}"
         )
     else:

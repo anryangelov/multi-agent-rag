@@ -178,3 +178,13 @@ def test_in_a_conflict_a_policy_outranks_a_standard_a_guide_and_a_runbook():
         Kind.RUNBOOK,
         Kind.REPORT,  # a report holds facts, not rules
     ]
+
+
+def test_a_kind_names_its_plural_for_the_conflict_reason():
+    assert [kind.plural for kind in Kind] == [
+        "policies",
+        "standards",
+        "guides",
+        "runbooks",
+        "reports",
+    ]
