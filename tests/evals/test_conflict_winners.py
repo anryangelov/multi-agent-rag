@@ -14,16 +14,15 @@ import re
 from pathlib import Path
 
 import pytest
-import yaml
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 
 from rag_system.conflicts import ConflictChecker
 from rag_system.ingestion import chunk_document, load_documents
 from rag_system.messages import Claim, Classification, Decision
+from tests.evals.gold_set import QUESTIONS
 from tests.fakes import offline_except
 
 ROOT = Path(__file__).parents[2]
-QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 CONFLICTS = {q["id"]: q["conflict"] for q in QUESTIONS if "conflict" in q}
 DOCUMENTS = {document.id: document for document in load_documents(ROOT / "data")}
 

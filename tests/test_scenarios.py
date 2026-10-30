@@ -10,18 +10,14 @@ The expected domains and documents come from tests/evals/questions.yaml.
 """
 
 import re
-from pathlib import Path
 
 import pytest
-import yaml
 
 from rag_system.messages import Classification, Domain, Status
 from rag_system.offline_model import OFFLINE_NOTE, offline_model
 from rag_system.orchestrator import Orchestrator
+from tests.evals.gold_set import QUESTIONS
 
-QUESTIONS = yaml.safe_load(
-    (Path(__file__).parent / "evals" / "questions.yaml").read_text()
-)
 SCENARIOS = [q for q in QUESTIONS if q["id"] in ("Q01", "Q02", "Q03")]
 
 # Retrieval misses CMP-1 for the third scenario (measured 2026-10-28; the

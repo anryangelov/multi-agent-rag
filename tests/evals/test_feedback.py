@@ -7,24 +7,21 @@
                    --> the same questions, their paraphrases and questions
                        that received no feedback, answered again
 
-Measured on 2026-10-28 (found expected documents, sources from documents
+Measured on 2026-10-30 (found expected documents, sources from documents
 that are not expected answers):
-    same questions          27 of 29, 105 off-target  ->  27 of 29, 28
-    paraphrases             26 of 29, 189 off-target  ->  26 of 29, 143
-    questions not rated     13 of 13,  34 off-target  ->  13 of 13, 34
+    same questions          29 of 32, 145 off-target  ->  29 of 32, 33
+    paraphrases             28 of 32, 209 off-target  ->  28 of 32, 155
+    questions not rated     14 of 14,  38 off-target  ->  14 of 14, 38
 """
 
 import random
-from pathlib import Path
-
-import yaml
 
 from rag_system.learning import ChunkWeights, SimulatedUser
 from rag_system.messages import Classification
 from rag_system.offline_model import offline_model
 from rag_system.orchestrator import Orchestrator
+from tests.evals.gold_set import QUESTIONS
 
-QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 ROUNDS = 3
 
 
@@ -71,8 +68,8 @@ async def test_feedback_cuts_off_target_sources_without_losing_expected_ones(
 
     same_after = await measure(orchestrator, QUESTIONS)
     paraphrases_after = await measure(orchestrator, QUESTIONS, "paraphrase")
-    assert (same_before, same_after) == ((27, 105), (27, 28))
-    assert (paraphrases_before, paraphrases_after) == ((26, 189), (26, 143))
+    assert (same_before, same_after) == ((29, 145), (29, 33))
+    assert (paraphrases_before, paraphrases_after) == ((28, 209), (28, 155))
 
 
 async def test_feedback_leaves_questions_it_was_not_given_for_unchanged(
@@ -84,4 +81,4 @@ async def test_feedback_leaves_questions_it_was_not_given_for_unchanged(
 
     await give_feedback(orchestrator, weights, rated)
 
-    assert (before, await measure(orchestrator, not_rated)) == ((13, 34), (13, 34))
+    assert (before, await measure(orchestrator, not_rated)) == ((14, 38), (14, 38))

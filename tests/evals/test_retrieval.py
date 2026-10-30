@@ -9,21 +9,19 @@ The last test runs the domain agents themselves (dynamic retrieval).
                    --> the documents of the hits
                    --> compared with expected_documents and forbidden_documents
 
-The floors are the numbers measured on 2026-10-28 (store 26 of 29 expected
-documents, agents 27 of 29). A change that lowers them fails here.
+The floors are the numbers measured on 2026-10-30 (store 29 of 32 expected
+documents, agents 29 of 32). A change that lowers them fails here.
 """
 
 from pathlib import Path
-
-import yaml
 
 from rag_system.domain_agents import DomainAgent
 from rag_system.messages import AgentTask, Classification, Domain, SubQuery
 from rag_system.offline_model import offline_model
 from rag_system.vector_store import InMemoryVectorStore
+from tests.evals.gold_set import QUESTIONS
 
 ROOT = Path(__file__).parents[2]
-QUESTIONS = yaml.safe_load((Path(__file__).parent / "questions.yaml").read_text())
 LIMIT = 5
 
 
@@ -42,7 +40,7 @@ def found_documents(store: InMemoryVectorStore, question: dict) -> set[str]:
     return found
 
 
-def test_retrieval_finds_at_least_26_of_the_29_expected_documents(corpus_store):
+def test_retrieval_finds_at_least_29_of_the_32_expected_documents(corpus_store):
     found, expected, missed = 0, 0, []
     for question in QUESTIONS:
         documents = found_documents(corpus_store, question)
@@ -53,8 +51,8 @@ def test_retrieval_finds_at_least_26_of_the_29_expected_documents(corpus_store):
             else:
                 missed.append(f"{question['id']}: {doc_id}")
 
-    assert expected == 29
-    assert found >= 26, f"found {found} of {expected}; missed {missed}"
+    assert expected == 32
+    assert found >= 29, f"found {found} of {expected}; missed {missed}"
 
 
 def test_a_superseded_version_is_never_retrieved_unless_history_is_asked(corpus_store):
@@ -75,13 +73,13 @@ def test_the_cause_buried_in_the_long_incident_review_is_in_the_top_5(corpus_sto
     assert any("alert reference" in hit.chunk.text for hit in hits)
 
 
-async def test_the_domain_agents_cite_at_least_27_of_the_29_expected_documents(
+async def test_the_domain_agents_cite_at_least_29_of_the_32_expected_documents(
     corpus_store,
 ):
     """Dynamic retrieval end to end: each expected domain's agent, offline model.
 
-    Measured 2026-10-28: 27 of 29. Missed: CMP-1 for Q03, and TEC-2 for Q13,
-    because nothing in the pipeline asks for superseded versions yet.
+    Measured 2026-10-30: 29 of 32. Missed: CMP-1 for Q03, and TEC-2 for Q13 and
+    BUS-1 for Q17, because offline nothing asks for superseded versions.
     """
     agents = {
         domain: DomainAgent(domain, corpus_store, offline_model()) for domain in Domain
@@ -104,7 +102,7 @@ async def test_the_domain_agents_cite_at_least_27_of_the_29_expected_documents(
             else:
                 missed.append(f"{question['id']}: {doc_id}")
 
-    assert found >= 27, f"found {found} of 29; missed {missed}"
+    assert found >= 29, f"found {found} of 32; missed {missed}"
 
 
 async def test_the_worked_example_in_the_domain_agent_is_still_true(corpus_store):

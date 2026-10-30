@@ -210,3 +210,110 @@
           Audit, the Data Protection Office and, for their own workflows,
           process owners.
     winner: null
+
+- id: Q17
+  purpose: coverage of BUS-1, the superseded approval policy; history
+  question: Who had to approve a new automated process back in 2025?
+  include_superseded: true
+  paraphrase: In 2025, whose approval did a new automated process need?
+  expected_domains: [business]
+  expected_documents: [BUS-1]
+
+- id: Q18
+  purpose: coverage of BUS-5, the business case rules
+  question: >-
+    How long can an automation take to pay for itself before we have to
+    justify it?
+  paraphrase: >-
+    What payback period is acceptable for an automation without a written
+    reason?
+  expected_domains: [business]
+  expected_documents: [BUS-5]
+
+- id: Q19
+  purpose: coverage of TEC-8, the architecture overview (public)
+  question: Does any part of the automation platform run in the cloud?
+  paraphrase: Which parts of the platform are hosted outside our data centres?
+  expected_domains: [technical]
+  expected_documents: [TEC-8]
+
+# Held-out questions (`heldout: true`): written after every threshold was
+# tuned, by a separate model that saw only the document titles, and run
+# once with the thresholds frozen. The tuning evals skip them;
+# test_heldout.py reports them on their own.
+
+- id: Q20
+  purpose: held-out; "website" in the question, "screens" in TEC-5
+  heldout: true
+  question: >-
+    A supplier only offers a website, not an API. Can we still connect it to
+    one of our automated workflows?
+  paraphrase: >-
+    Can a workflow work with a vendor system that has a web page but no API?
+  expected_domains: [technical]
+  expected_documents: [TEC-5]
+
+- id: Q21
+  purpose: held-out; what the analyst finds out before automating
+  heldout: true
+  question: >-
+    A department wants me to automate a process with lots of exceptions. What
+    should I find out from them before passing the work to a developer?
+  paraphrase: >-
+    Before I hand a messy process with many special cases to a developer,
+    what do I need to learn from the department?
+  expected_domains: [business]
+  expected_documents: [BUS-4]
+
+- id: Q22
+  purpose: held-out; two compliance documents, secrets and run records
+  heldout: true
+  question: >-
+    Our workflow needs an API key to connect to a vendor's system. How should
+    we protect the key, and what details should we keep from each run?
+  paraphrase: >-
+    Where do we store a vendor's API key for a workflow, and what must be
+    recorded every time the workflow runs?
+  expected_domains: [compliance]
+  expected_documents: [CMP-5, CMP-7]
+
+- id: Q23
+  purpose: held-out; a change to a live workflow, two domains
+  heldout: true
+  question: >-
+    The owner wants to change a decision rule in a live workflow before a
+    major campaign. Who should be involved, and what needs to happen before
+    the change goes live?
+  paraphrase: >-
+    We need to adjust a threshold in a running automation ahead of a
+    campaign. Who approves it and what are the steps to release it?
+  expected_domains: [business, technical]
+  expected_documents: [BUS-7, TEC-3]
+
+- id: Q24
+  purpose: held-out; no document answers it, the system should say so
+  heldout: true
+  question: >-
+    Can the platform calculate monthly staff bonuses from sales figures and
+    send the results directly to Payroll?
+  paraphrase: >-
+    Could an automation work out employee bonuses from sales numbers and
+    pass them straight to Payroll?
+  expected_domains: []
+  expected_documents: []
+
+- id: Q25
+  purpose: >-
+    held-out; two domains; CMP-3 sets no period for copies of ID documents,
+    so the right answer says the rules do not set one
+  heldout: true
+  question: >-
+    We want to trial a workflow that copies customer ID documents for manual
+    review. Who needs to approve the trial, and how long can we keep those
+    copies?
+  paraphrase: >-
+    For a pilot that stores copies of customers' identity documents for a
+    person to check, whose approval do we need and what is the retention
+    period?
+  expected_domains: [business, compliance]
+  expected_documents: [BUS-2, CMP-1, CMP-3]

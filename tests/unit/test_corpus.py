@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 from rag_system.messages import Classification, Domain, Kind
+from tests.evals.gold_set import ALL_QUESTIONS as QUESTIONS
 
 ROOT = Path(__file__).parents[2]
 REQUIRED = {
@@ -38,7 +39,6 @@ def _load() -> dict[str, tuple[dict, str, Path]]:
 
 
 DOCS = _load()
-QUESTIONS = yaml.safe_load((ROOT / "tests/evals/questions.yaml").read_text())
 # A document is superseded when a newer one names it in `supersedes`.
 SUPERSEDED = {
     meta["supersedes"] for meta, _, _ in DOCS.values() if "supersedes" in meta
