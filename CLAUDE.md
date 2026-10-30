@@ -170,26 +170,30 @@ Decided by the developer.
 
 ---
 
-## [DIRECTION] Task B, the systems design
+## [DECIDED] Task B, the systems design
 
-The developer has set this course; the full design comes later.
+Decided by the developer on 2026-10-29; entries in `docs/decisions.md`,
+section Task B. The document is written from research, not from the Task A
+corpus, and must agree with the corpus.
 
-1. **Three personas, not two:** business user, process analyst (assembles
-   templates from ready-made blocks), developer (builds blocks, connectors,
-   custom logic). The analyst is the bridge the brief leaves out.
-2. **One model, many views.** A workflow is one definition; the canvas,
-   the wizard and the code are views over it, not separate systems.
-   Progressive disclosure moves a user between views, never between
-   systems.
-3. **Connectors are the core.** A modern system gets an API connector; a
-   legacy system without an API gets an RPA connector; the AI step is a
-   connector to Azure with rules on which data classes it may receive.
-   Business users see only approved connectors.
-4. **Governance without heavy process:** tiers for templates and
-   connectors (certified / team / experimental), four-eyes review for
-   anything touching sensitive data, audit of every run.
-5. **Migration from today:** how existing automated processes enter the
-   model, instead of building from zero.
+1. **Two roles, as in the assignment:** business users (wizard and canvas; the
+   experienced ones write templates) and power users (code, SDK, API,
+   blocks); the platform team owns catalog, rules and engine.
+2. **One definition, many views.** A workflow is one declarative
+   definition (a subset of the Open Workflow specification plus our
+   metadata); wizard, canvas, text view, SDK and AI author all read and
+   write it; local code is a closed box on the canvas.
+3. **Steps are built-in, catalog blocks or local code.** A catalog block is
+   declarative (an existing API call) or a worker in any language; local
+   code runs in a sandbox.
+4. **Rules enforced by the platform:** trust levels (certified / team /
+   experimental), data classes checked along the data path (public,
+   internal, confidential), review by a second person for high risk, audit
+   of every run.
+5. **Migration by wrapping first** (strangler fig); versions of workflows
+   and blocks; AI as author and as blocks, no agents in the first version.
+6. **Assembled from small parts** plus our interpreter, catalog and rules;
+   say "block", not "connector".
 
 ---
 

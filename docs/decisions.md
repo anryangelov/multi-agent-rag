@@ -13,7 +13,7 @@ automation platform designed in Task B, at a fictional bank (Orla Bank)
 with legacy core systems, models on Azure OpenAI and everything else
 on-premise. The two tasks stay separate deliverables.
 
-**Why.** The brief already links them: Task B lets employees "build their
+**Why.** The assignment already links them: Task B lets employees "build their
 own workflows using microservices", and the Task A test questions ask about
 "deploying a new microservice" and "a new data processing workflow".
 
@@ -82,7 +82,7 @@ older one in `supersedes`, and search leaves superseded versions out
 unless a question asks about history. The conflict rules deal with
 conflicts 3 to 7, where nothing in the metadata links the documents.
 
-**Why.** The brief asks to "handle contradictory information from different
+**Why.** The assignment asks to "handle contradictory information from different
 sources". A conflict inside one domain reaches one agent; a conflict across
 domains only becomes visible when the orchestrator combines the agents'
 answers, so both kinds are needed.
@@ -224,11 +224,11 @@ the entry point for its topic. Added around them: `rag_system/messages.py`
 (the protocol between agents), `rag_system/config.py` (settings and model
 factories), `data/`, `tests/unit/`, `tests/evals/` and this file.
 
-**Why.** The reviewer finds the files the brief names where the brief
+**Why.** The reviewer finds the files the assignment names where the assignment
 puts them.
 
 **Rejected.**
-- A `src/` or per-component layout: the brief would have to be mapped onto
+- A `src/` or per-component layout: the assignment would have to be mapped onto
   new paths.
 - Only the given files: `utils.py` would collect everything else.
 
@@ -261,14 +261,14 @@ code coordinates and picks conflict winners by explicit rules.
 
 **Why.** The route is a model's decision (the classifier), while its
 execution stays readable and is tested offline. The orchestrator meets the
-brief's definition: it "coordinates multiple agents and synthesizes their
+assignment's definition: it "coordinates multiple agents and synthesizes their
 responses". This is the routing and parallelization pattern described in
 Anthropic's ["Building effective agents"](https://www.anthropic.com/research/building-effective-agents).
 
 **Rejected.**
 - An LLM orchestrator that calls the domain agents as tools: the route
   differs from run to run, cannot be shown honestly offline, and makes the
-  classifier the brief asks for redundant.
+  classifier the assignment asks for redundant.
 - LangGraph, LangChain or LlamaIndex: the route would live in framework
   configuration, plus a heavy dependency.
 
@@ -410,7 +410,7 @@ Hybrid is best or equal at every k and finds the TEC-9 cause paragraph.
 
 **Rejected.**
 - Embeddings only: weakest at every k.
-- BM25 only: no vector store, which the brief asks for.
+- BM25 only: no vector store, which the assignment asks for.
 
 ### Dynamic retrieval
 
@@ -575,7 +575,7 @@ score wins.
 The answer states the winner and the reason, for example "CMP-3 (policy)
 overrules TEC-4 (runbook)" or "TEC-3 refers rollbacks to BUS-7".
 
-**Why.** The brief asks to "handle contradictory information from different
+**Why.** The assignment asks to "handle contradictory information from different
 sources using confidence scoring". With the kind hidden, the three
 authority conflicts test each candidate signal: the later date is right in
 1 of 3; how directly each side is worded is equal in all three; the
@@ -636,7 +636,7 @@ conflicts, not a separate confidence level. The agent's number is renamed
 from `confidence` to `best_similarity`: it decides "nothing relevant" and
 is shown by monitoring.
 
-**Why.** The brief ties confidence scoring to conflicts. Retrieval
+**Why.** The assignment ties confidence scoring to conflicts. Retrieval
 similarity is not confidence: needed and extra domains overlap between
 0.44 and 0.54 here, and others report the same
 ([answerable and unanswerable questions "overlap from 0.31 to 0.59"](https://dev.to/klausbyskov/retrieval-confidence-cant-tell-your-rag-chatbot-when-the-answer-is-missing-2ml0)).
@@ -645,7 +645,7 @@ confidence, tend to be overconfident"
 ([Xiong et al.](https://arxiv.org/abs/2306.13063)).
 
 **Rejected.**
-- A level (high, medium, low) for each answer: the brief does not ask for
+- A level (high, medium, low) for each answer: the assignment does not ask for
   it, and a failed agent is already visible in the answer.
 - A number from a formula over similarity and kind: invented weights.
 - The model rating itself: measured overconfident in the literature.
@@ -770,3 +770,243 @@ a model that hangs without an error would otherwise hold the answer.
 - Our own retries with backoff: the SDKs already retry, and a real outage
   still ends in an error.
 
+
+## Task B: the self-service platform
+
+The design starts from research (sources in
+`systems_design/self_service_paradox.md`), not from the Task A corpus;
+the two documents were checked against each other at the end.
+
+### The setting
+
+**Decision.** A bank, described by four conditions at the top of the
+document: regulated, so every run is audited; some core systems have no
+API; language models run in Azure and everything else on-premise; personal
+data of customers must not leave the bank unprotected. The document does
+not refer to Task A documents.
+
+**Why.** The conditions turn the trade-offs into concrete ones (the assignment
+evaluates "trade-offs and constraints" and "feasibility").
+
+**Rejected.**
+- A generic company: the trade-offs stay words, and the two tasks tell two
+  stories.
+- The bank plus references to Task A documents: a reader of Task B would
+  need the corpus.
+
+### Two roles
+
+**Decision.** The assignment's two roles. Business users work in the wizard and
+on the canvas (the more experienced ones assemble workflows and write
+templates for colleagues); power users write code and blocks and use the
+API. The platform team owns the catalog, the rules and the engine and is
+not a user role.
+
+**Why.** The assignment's business users already ask for "drag-and-drop
+simplicity", which is the canvas, so two roles cover all views.
+
+**Rejected.** Three roles with a process analyst: a role the assignment does not
+ask for; the evidence for it (Microsoft's third persona) turned out to be
+IT/DevOps, not an analyst.
+
+### One definition, many views
+
+**Decision.** A workflow is one declarative definition (YAML) that every
+view edits. Free code lives only in local code steps, shown on the canvas
+as closed boxes (name, input, output, owner). The platform validates every
+save. A workflow that leaves its template's shape is edited on the canvas.
+
+**Why.** Every view edits the same structure, so nothing is lost when a
+workflow moves between the canvas and code (AWS Step Functions works the
+same way).
+
+**Rejected.**
+- The definition is a program and the canvas only draws it: business users
+  cannot edit power users' workflows, two classes of workflows.
+- Two-way translation between the canvas and arbitrary code: unsolved in
+  general; generated code is either edited and breaks the translation, or
+  left alone.
+
+### The SDK is one more view
+
+**Decision.** The stored definition is the only source. SDKs in several
+languages load it, change it and save it with a version check (a save based
+on an old version is refused). A script may generate the first version.
+Repetition and branching are built-in steps of the format, so rules such as
+"one step per branch of the bank" survive edits.
+
+**Why.** Everyone can edit every workflow, and power users keep their own
+language and editor (the developer's proposal).
+
+**Rejected.**
+- Workflows managed in code (Git) with a read-only canvas: two modes of
+  ownership; business users locked out.
+- No SDK: "full coding flexibility" only half covered.
+
+### The format
+
+**Decision.** A subset of the Open Workflow specification (task kinds `do`,
+`call`, `switch`, `for`, `wait`, `run`, `try`) plus the platform's own fields in its
+`metadata`; other task kinds are refused on save.
+
+**Why.** No invented language; the schema and SDKs in several languages
+exist.
+
+**Rejected.**
+- A new minimal YAML format: the schema and every SDK would have to be
+  written.
+- BPMN 2.0: XML instead of YAML, and it needs its own editor.
+
+### Assembled from small parts
+
+**Decision.** The platform is assembled from small libraries (a durable
+execution library over Postgres, a canvas library, forms generated from
+JSON Schema, a code editor, an expression language, a policy engine) plus
+an in-house interpreter, catalog and rules. The document has a "ready-made
+or built in-house"
+table.
+
+**Why.** The controls the bank needs most (trust levels, data classes,
+review by risk) are missing or paid in the complete platforms, so they are
+built either way, better over parts that can be replaced one at a time.
+
+**Rejected.**
+- A complete platform (Kestra, Camunda 8) plus the bank's own rules: heavy, key
+  features paid, the rules forced into a foreign model.
+- Everything ourselves, including the engine: not realistic for a bank.
+
+### How a block runs
+
+**Decision.** A catalog block is either declarative (a description of a
+call to an existing API; the engine makes the call) or a worker in any
+language that takes tasks from the engine's queue.
+
+**Why.** Most blocks wrap existing APIs and need no code; the assignment names no
+language; a worker that fails cannot bring the platform down.
+
+**Rejected.**
+- Workers only: a program just to forward a request.
+- Plugins inside the platform: one language; a faulty block brings down or
+  exposes the whole platform.
+
+### Local code
+
+**Decision.** Local code inside one workflow is allowed. It runs in its own
+container with limits and no direct network, reaches other systems only
+through catalog blocks, and declares input and output like a block.
+
+**Why.** "Custom logic" from the assignment without the procedure for a new
+block; isolation protects the bank.
+
+**Rejected.**
+- No local code, every piece of code a catalog block: ten lines need a
+  block, a worker and a registration.
+- Local code inside the engine: it gets the engine's access to all
+  workflows and data.
+
+### Trust levels
+
+**Decision.** Three levels for blocks and templates: certified (everyone,
+production), team (the author team, production in its own workflows),
+experimental (the author team, never production). Promotion by a platform
+team review. Business users see certified blocks only.
+
+**Why.** Business users see only what was checked; teams can try things
+without waiting. The names match the Task A corpus.
+
+**Rejected.**
+- Two levels: teams either wait for approval or use unapproved blocks in
+  production.
+- No levels, owners only: business users cannot tell tested from untested.
+
+### Data classes along the data path
+
+**Decision.** Every block declares the class of data it returns and the
+highest class it accepts (public, internal, confidential; customer data is
+confidential, as in the Task A corpus). On save the platform follows each
+output to its inputs and refuses confidential data reaching a block that
+accepts less, suggesting a masking step; the check runs again at run time.
+
+**Why.** The error is caught on the canvas, at save, not in production and
+not by someone who has to remember.
+
+**Rejected.**
+- Groups of blocks as in Power Platform: too coarse, a workflow that reads
+  the CRM could send no email at all.
+- No automatic check, the review catches it: relies on memory.
+- A fourth class "personal": the Task A corpus would have to change a day
+  before the deadline.
+
+### Review by risk
+
+**Decision.** A change is high risk when it touches confidential data,
+adds the first AI step to a workflow, adds a block for a new system, moves
+money or adds local code. High risk needs approval by a second person who
+is not the author; everything else goes live after the automatic checks.
+The list joins the first version of this rule with the Task A four-eyes policy.
+
+**Why.** Review where there is something to lose ("risk-based
+guardrails", Gartner 2026).
+
+**Rejected.**
+- Review of every production release: people bypass the platform.
+- No human review: local code that moves money would go live unchecked.
+- The first version of the rule only: two documents with two rules for one bank.
+
+### AI
+
+**Decision.** AI writes drafts of definitions (validated, reviewed on the
+canvas, published the normal way) and runs as blocks with fixed input and
+output under the data rules. No autonomous agents in the first version.
+
+**Why.** AI lowers the floor further, and a predefined path stays
+predictable and auditable.
+
+**Rejected.**
+- Agents now: the path is decided at run time, so audit is hard.
+- AI blocks only: misses the largest help for business users.
+
+### Versions
+
+**Decision.** A run finishes on the version it started with; rollback makes
+the previous version active. Blocks use semantic versioning: minor changes
+reach every workflow, a breaking change is a new major version that
+workflows adopt when their owners move; the catalog shows which workflows
+use which version.
+
+**Rejected.**
+- Always the latest version: one breaking change stops every workflow that
+  uses the block.
+- Exact versions everywhere: bug fixes reach no one.
+
+### Migration
+
+**Decision.** Wrap first, take apart later (strangler fig): every existing
+automation enters as one worker block in a one-step workflow and gets an
+owner, a schedule and audit at once; the riskiest are split into steps
+first.
+
+**Rejected.**
+- Rewrite from zero: months without audit.
+- New automations only: two worlds for good.
+
+### The shape of the document
+
+**Decision.** First a short story: each problem and the idea that solves
+it, in plain words with two small diagrams. Then the details: what a
+definition looks like and who edits what (the business user and the
+developer on one workflow), a glossary, how the pieces fit, a decision tree
+that sends seven bank use cases to their path (the assignment asks for
+"practical and implementable solutions"), and "Why this design" (the
+problem, what "one platform" means, the principles). Then the assignment's
+four sections with their own names, trade-offs and the questions for the
+business. Diagrams in Mermaid, which GitHub draws and a model reads as
+text; details folded.
+
+**Rejected.**
+- Ordered by decisions: the reviewer has to find the four sections; this
+  file already has the decisions.
+- A short document of about 1,500 words: the assignment asks for a
+  "comprehensive solution".
+- ASCII diagrams only: heavier to read; the first draft read like a
+  reference and was rewritten.
